@@ -1,0 +1,41 @@
+{
+  "name": "pipe.js",
+  "version": "0.0.0",
+  "description": "The client-side library which is used in BigPipe to orchestrate the pagelets.",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm run-script compile",
+    "compile": "./node_modules/.bin/browserify index.js -o dist/pipe.js --standalone BigPipe",
+    "prepublish": "npm run-script compile",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bigpipe/pipe.js.git"
+  },
+  "keywords": [
+    "BigPipe",
+    "pipe",
+    "pagelet",
+    "orchestrate",
+    "browserify"
+  ],
+  "dependencies": {
+    "eventemitter3": "0.1.x",
+    "fortress": "0.0.x"
+  },
+  "devDependencies": {
+    "chai": "1.8.x",
+    "mocha": "1.13.x",
+    "pre-commit": "0.0.x",
+    "browserify": "2.33.x",
+    "watchify": "0.3.x"
+  },
+  "author": "Arnout Kazemier",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bigpipe/pipe.js/issues"
+  },
+  "homepage": "http://bigpipe.io"
+}
