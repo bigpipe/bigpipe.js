@@ -120,7 +120,7 @@ Pagelet.prototype.configure = function configure(name, data) {
     if (err) return pagelet.emit('error', err);
     pagelet.emit('loaded');
 
-    pagelet.render(pagelet.parse());
+    pagelet.render(pagelet.parse(), data.remove);
     pagelet.initialise();
   }, { context: this.pipe, timeout: 25 * 1000 });
 };
@@ -212,10 +212,11 @@ Pagelet.prototype.$ = function $(attribute, value) {
  * Render the HTML template in to the placeholders.
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
+ * @param {Boolean} remove Remove root element or not
  * @returns {Boolean} Successfully rendered a pagelet.
  * @api private
  */
-Pagelet.prototype.render = function render(html) {
+Pagelet.prototype.render = function render(html, remove) {
   if (!this.placeholders.length || !html) return false;
 
   collection.each(this.placeholders, function (root) {
@@ -231,7 +232,13 @@ Pagelet.prototype.render = function render(html) {
       fragment.appendChild(div.firstChild);
     }
 
-    root.appendChild(fragment);
+    if (remove) {
+      root.parentNode.insertBefore(fragment, root);
+      root.parentNode.removeChild(root);
+    } else {
+      root.appendChild(fragment);
+    }
+
     if (borked) root.removeChild(div);
   }, this);
 
