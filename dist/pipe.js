@@ -2173,14 +2173,17 @@ module.exports = function iframe(el, id, options) {
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
   , Fortress = require('fortress')
-  , async = require('./async');
+  , async = require('./async')
+  , sandbox;
 
 //
 // Create one single Fortress instance that orchestrates all iframe based client
 // code. This sandbox variable should never be exposed to the outside world in
 // order to prevent leaking
 //
-var sandbox = new Fortress();
+function fortress() {
+  return sandbox = sandbox || new Fortress;
+}
 
 /**
  * Representation of a single pagelet.
@@ -2240,7 +2243,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
-  this.container = sandbox.create();        // Create an application sandbox.
+  this.container = fortress().create();     // Create an application sandbox.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
