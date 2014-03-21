@@ -1,0 +1,15 @@
+name: pipe.js
+ui: mocha-bdd
+browsers:
+  - name: chrome
+    version: latest
+  - name: firefox
+    version: latest
+#  - name: ie
+#    version: latest
+#  - name: opera
+#    version: latest
+#  - name: safari
+#    version: latest
+#  - name: iphone
+#    version: 6.1
