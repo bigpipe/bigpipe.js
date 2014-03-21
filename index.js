@@ -13,7 +13,7 @@ var EventEmitter = require('eventemitter3')
  *
  * @constructor
  * @param {String} server The server address we need to connect to.
- * @param {Object} options Pipe configuration
+ * @param {Object} options Pipe configuration.
  * @api public
  */
 function Pipe(server, options) {
@@ -25,15 +25,13 @@ function Pipe(server, options) {
   this.pagelets = {};                   // Collection of different pagelets.
   this.freelist = [];                   // Collection of unused Pagelet instances.
   this.maximum = 20;                    // Max Pagelet instances we can reuse.
-  this.url = location.pathname;         // The current URL.
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
-  this.id = options.id;                 // Unique ID of the page.
 
   EventEmitter.call(this);
 
   this.configure(options);
-  this.connect(server, options.primus);
+  this.connect(server, options.primus).visit(location.pathname, options.id);
 }
 
 //
@@ -45,6 +43,7 @@ Pipe.prototype.constructor = Pipe;
 /**
  * Configure the Pipe.
  *
+ * @param {Object} options Configuration.
  * @return {Pipe}
  * @api private
  */
@@ -134,6 +133,8 @@ Pipe.prototype.submit = function submit(evt) {
 /**
  * Create a new Pagelet instance.
  *
+ * @param {String} name The name of the pagelet.
+ * @param {Object} data Data for the pagelet.
  * @returns {Pipe}
  * @api private
  */
@@ -237,15 +238,38 @@ Pipe.prototype.free = function free(pagelet) {
 };
 
 /**
+ * Register a new URL that we've joined.
+ *
+ * @param {String} url The current URL.
+ * @param {String} id The id of the Page that rendered this page.
+ * @api public
+ */
+Pipe.prototype.visit = function visit(url, id) {
+  this.id = id || this.id;              // Unique ID of the page.
+  this.url = url;                       // Location of the page.
+
+  this.orchestrate.write({
+    url: this.url,
+    type: 'page',
+    id: this.id
+  });
+
+  return this;
+};
+
+/**
  * Setup a real-time connection to the pagelet server.
  *
  * @param {String} url The server address.
  * @param {Object} options The Primus configuration.
+ * @returns {Pipe}
  * @api private
  */
 Pipe.prototype.connect = function connect(url, options) {
   this.stream = new Primus(url, options);
   this.orchestrate = this.stream.substream('pipe::orchestrate');
+
+  return this;
 };
 
 //
