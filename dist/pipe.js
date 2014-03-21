@@ -1,5 +1,4 @@
-(function(e){if("function"==typeof bootstrap)bootstrap("bigpipe",e);else if("object"==typeof exports)module.exports=e();else if("function"==typeof define&&define.amd)define(e);else if("undefined"!=typeof ses){if(!ses.ok())return;ses.makeBigPipe=e}else"undefined"!=typeof window?window.BigPipe=e():global.BigPipe=e()})(function(){var define,ses,bootstrap,module,exports;
-return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.BigPipe=e():"undefined"!=typeof global?global.BigPipe=e():"undefined"!=typeof self&&(self.BigPipe=e())}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection');
@@ -158,7 +157,9 @@ var EventEmitter = require('eventemitter3')
   , loader = require('./loader');
 
 /**
- * Pipe.
+ * Pipe is the client-side library which is automatically added to pages which
+ * uses the BigPipe framework. It assumes that this library is bundled with
+ * a Primus instance which uses the `substream` plugin.
  *
  * @constructor
  * @param {String} server The server address we need to connect to.
@@ -194,6 +195,7 @@ Pipe.prototype.constructor = Pipe;
 /**
  * Configure the Pipe.
  *
+ * @return {Pipe}
  * @api private
  */
 Pipe.prototype.configure = function configure(options) {
@@ -207,6 +209,8 @@ Pipe.prototype.configure = function configure(options) {
   // Catch all form submits.
   //
   root.addEventListener('submit', this.submit, false);
+
+  return this;
 };
 
 /**
@@ -224,10 +228,11 @@ Pipe.prototype.IEV = Pagelet.prototype.IEV;
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Pagelet data.
+ * @returns {Pipe}
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
-  if (!this.has(name)) this.create(name, data);
+  if (!this.has(name)) return this.create(name, data);
 
   return this;
 };
@@ -236,6 +241,7 @@ Pipe.prototype.arrive = function arrive(name, data) {
  * Catch all form submits and add reference to originating pagelet.
  *
  * @param {Event} evt The submit event.
+ * @returns {Void}
  * @api public
  */
 Pipe.prototype.submit = function submit(evt) {
@@ -278,11 +284,14 @@ Pipe.prototype.submit = function submit(evt) {
 /**
  * Create a new Pagelet instance.
  *
+ * @returns {Pipe}
  * @api private
  */
 Pipe.prototype.create = function create(name, data) {
   var pagelet = this.pagelets[name] = this.alloc();
   pagelet.configure(name, data);
+
+  return this;
 };
 
 /**
@@ -300,6 +309,7 @@ Pipe.prototype.has = function has(name) {
  * Remove the pagelet.
  *
  * @param {String} name The name of the pagelet that needs to be removed.
+ * @returns {Pipe}
  * @api public
  */
 Pipe.prototype.remove = function remove(name) {
@@ -315,12 +325,15 @@ Pipe.prototype.remove = function remove(name) {
  * Broadcast an event to all connected pagelets.
  *
  * @param {String} event The event that needs to be broadcasted.
+ * @returns {Pipe}
  * @api private
  */
 Pipe.prototype.broadcast = function broadcast(event) {
   for (var pagelet in this.pagelets) {
     this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
   }
+
+  return this;
 };
 
 /**
@@ -329,6 +342,7 @@ Pipe.prototype.broadcast = function broadcast(event) {
  * @param {Element} root The root node where we should insert stuff in.
  * @param {String} url The location of the asset.
  * @param {Function} fn Completion callback.
+ * @returns {Loader}
  * @api private
  */
 Pipe.prototype.load = loader.load;
@@ -337,14 +351,17 @@ Pipe.prototype.load = loader.load;
  * Unload a new resource.
  *
  * @param {String} url The location of the asset.
+ * @returns {Loader}
  * @api private
  */
 Pipe.prototype.unload = loader.unload;
 
 /**
- * Allocate a new Pagelet instance.
+ * Allocate a new Pagelet instance, retrieve it from our pagelet cache if we
+ * have free pagelets available in order to reduce garbage collection.
  *
  * @returns {Pagelet}
+ * @api private
  */
 Pipe.prototype.alloc = function alloc() {
   return this.freelist.length
@@ -357,12 +374,16 @@ Pipe.prototype.alloc = function alloc() {
  * garbage collection.
  *
  * @param {Pagelet} pagelet The pagelet instance.
+ * @returns {Boolean}
  * @api private
  */
 Pipe.prototype.free = function free(pagelet) {
   if (this.freelist.length < this.maximum) {
     this.freelist.push(pagelet);
+    return true;
   }
+
+  return false;
 };
 
 /**
@@ -697,10 +718,6 @@ exports.unload = function unload(url) {
 };
 
 },{"./collection":2}],5:[function(require,module,exports){
-
-// not implemented
-// The reason for having an empty file and not throwing is to allow
-// untraditional implementation of this module.
 
 },{}],6:[function(require,module,exports){
 'use strict';

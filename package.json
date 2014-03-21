@@ -7,7 +7,6 @@
     "build": "npm run-script compile",
     "compile": "browserify index.js -o dist/pipe.js --standalone BigPipe",
     "prepublish": "npm run-script compile",
-    "test": "./phantomjs",
     "local": "zuul --local 1337 -- test/pipe.test.js",
     "watch": "watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
   },
@@ -26,6 +25,7 @@
     "eventemitter3": "0.1.x",
     "fortress": "0.0.x"
   },
+  "pre-commit": ["compile"],
   "devDependencies": {
     "browserify": "3.0.x",
     "mocha": "1.14.x",
