@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run-script compile",
-    "compile": "./node_modules/.bin/browserify index.js -o dist/pipe.js --standalone BigPipe",
+    "compile": "browserify index.js -o dist/pipe.js --standalone BigPipe",
     "prepublish": "npm run-script compile",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": "./node_modules/.bin/watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
+    "test": "./phantomjs",
+    "local": "zuul --local 1337 -- test/pipe.test.js",
+    "watch": "watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
   },
   "repository": {
     "type": "git",
@@ -26,11 +27,12 @@
     "fortress": "0.0.x"
   },
   "devDependencies": {
-    "chai": "1.8.x",
-    "mocha": "1.13.x",
+    "browserify": "3.0.x",
+    "mocha": "1.14.x",
+    "mocha-phantomjs": "3.2.x",
     "pre-commit": "0.0.x",
-    "browserify": "2.33.x",
-    "watchify": "0.3.x"
+    "watchify": "0.5.x",
+    "zuul": "1.0.x"
   },
   "author": "Arnout Kazemier",
   "license": "MIT",
