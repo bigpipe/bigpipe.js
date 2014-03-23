@@ -21,6 +21,8 @@ function Pipe(server, options) {
 
   options = options || {};
 
+  this.server = server;                 // The server address we connect to.
+  this.options = options;               // Reference to the used options.
   this.stream = null;                   // Reference to the connected Primus socket.
   this.pagelets = {};                   // Collection of different pagelets.
   this.freelist = [];                   // Collection of unused Pagelet instances.
@@ -31,7 +33,7 @@ function Pipe(server, options) {
   EventEmitter.call(this);
 
   this.configure(options);
-  this.connect(server, options.primus).visit(location.pathname, options.id);
+  this.visit(location.pathname, options.id);
 }
 
 //
@@ -248,6 +250,8 @@ Pipe.prototype.visit = function visit(url, id) {
   this.id = id || this.id;              // Unique ID of the page.
   this.url = url;                       // Location of the page.
 
+  if (!this.orchestrate) return this.connect();
+
   this.orchestrate.write({
     url: this.url,
     type: 'page',
@@ -266,10 +270,49 @@ Pipe.prototype.visit = function visit(url, id) {
  * @api private
  */
 Pipe.prototype.connect = function connect(url, options) {
-  this.stream = new Primus(url, options);
-  this.orchestrate = this.stream.substream('pipe::orchestrate');
+  options = options || {};
+  options.manual = true;
+
+  var primus = this.stream = new Primus(url, options)
+    , pipe = this;
+
+  this.orchestrate = primus.substream('pipe::orchestrate');
+
+  /**
+   * Upgrade the connection with URL information about the current page.
+   *
+   * @param {Object} options The connection options.
+   * @api private
+   */
+  primus.on('outgoing::url', function url(options) {
+    var querystring = primus.querystring(options.query || '');
+
+    querystring._bp_pid = primus.id;
+    querystring._bp_url = primus.url;
+
+    options.query = pipe.querystringify(querystring);
+  });
 
   return this;
+};
+
+/**
+ * Transform a query string object back in to string equiv.
+ *
+ * @param {Object} obj The query string object.
+ * @returns {String}
+ * @api private
+ */
+Pipe.prototype.querystringify = function querystringify(obj) {
+  var pairs = [];
+
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      pairs.push(key +'='+ obj[key]);
+    }
+  }
+
+  return pairs.join('&');
 };
 
 //
