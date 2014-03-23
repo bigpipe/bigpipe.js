@@ -287,11 +287,17 @@ Pipe.prototype.connect = function connect(url, options) {
   primus.on('outgoing::url', function url(options) {
     var querystring = primus.querystring(options.query || '');
 
-    querystring._bp_pid = primus.id;
-    querystring._bp_url = primus.url;
+    querystring._bp_pid = pipe.id;
+    querystring._bp_url = pipe.url;
 
     options.query = pipe.querystringify(querystring);
   });
+
+  //
+  // We forced manual opening of the connection so we can listen to the correct
+  // event as it will be executed directly after the `.open` call.
+  //
+  primus.open();
 
   return this;
 };
