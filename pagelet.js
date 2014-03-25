@@ -56,14 +56,13 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   // Create a real-time Substream over which we can communicate over without.
   //
-  this.substream = this.stream.substream('pagelet::'+ this.name);
-  this.substream.on('data', function data(packet) { pagelet.processor(packet); });
+  this.substream = this.stream.substream(this.name);
+  this.substream.on('data', function data(packet) {
+    pagelet.processor(packet);
+  });
 
   this.orchestrate.write({
-    page: this.pipe.id,                     // Unique id of the page.
-    url: this.pipe.url,                     // The current URL
-    type: 'configure',                      // Message type
-    pagelet: data.id,                       // Unique id of the pagelet.
+    type: 'pagelet',                        // Message type
     name: name                              // Pagelet name.
   });
 
