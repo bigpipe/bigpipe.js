@@ -54,6 +54,13 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.name = name;
 
   //
+  // The pagelet
+  //
+  if (data.remove) {
+    return this.destroy(true);
+  }
+
+  //
   // Create a real-time Substream over which we can communicate over without.
   //
   this.substream = this.stream.substream(this.name);
@@ -119,7 +126,7 @@ Pagelet.prototype.configure = function configure(name, data) {
     if (err) return pagelet.emit('error', err);
     pagelet.emit('loaded');
 
-    pagelet.render(pagelet.parse(), data.remove);
+    pagelet.render(pagelet.parse());
     pagelet.initialise();
   }, { context: this.pipe, timeout: 25 * 1000 });
 };
@@ -164,6 +171,7 @@ Pagelet.prototype.initialise = function initialise() {
  * Broadcast an event that will be emitted on the pagelet and the page.
  *
  * @param {String} event The name of the event we should emit
+ * @returns {Pagelet}
  * @api private
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
@@ -179,7 +187,9 @@ Pagelet.prototype.broadcast = function broadcast(event) {
 /**
  * Find the element based on the attribute and value.
  *
- * @returns {Array|NodeList}
+ * @param {String} attribute The name of the attribute we're searching.
+ * @param {String} value The value that the attribute should equal to.
+ * @returns {Array} A list of HTML elements that match.
  * @api private
  */
 Pagelet.prototype.$ = function $(attribute, value) {
@@ -211,17 +221,16 @@ Pagelet.prototype.$ = function $(attribute, value) {
  * Render the HTML template in to the placeholders.
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
- * @param {Boolean} remove Remove root element or not
  * @returns {Boolean} Successfully rendered a pagelet.
  * @api private
  */
-Pagelet.prototype.render = function render(html, remove) {
+Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length || !html) return false;
 
   collection.each(this.placeholders, function (root) {
     var fragment = document.createDocumentFragment()
       , div = document.createElement('div')
-      , borked = this.IEV < 7;
+      , borked = this.pipe.IEV < 7;
 
     if (borked) root.appendChild(div);
 
@@ -231,28 +240,13 @@ Pagelet.prototype.render = function render(html, remove) {
       fragment.appendChild(div.firstChild);
     }
 
-    if (remove) {
-      root.parentNode.insertBefore(fragment, root);
-      root.parentNode.removeChild(root);
-    } else {
-      root.appendChild(fragment);
-    }
-
+    root.appendChild(fragment);
     if (borked) root.removeChild(div);
   }, this);
 
   this.broadcast('render', html);
   return true;
 };
-
-/**
- * Horrible hack, but needed to prevent memory leaks and other issues in Internet
- * Explorer that's caused by the use of document.createDocumentFragment()
- *
- * @type {Number}
- * @private
- */
-Pagelet.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
 
 /**
  * Parse the included template from the comment node so it can be injected in to
@@ -282,10 +276,15 @@ Pagelet.prototype.parse = function parse() {
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
- * @TODO remove unused CSS files
+ * @TODO unload CSS
+ * @TODO unload JavaScript
+ *
+ * @param {Boolean} remove Remove the placeholder as well.
  * @api public
  */
-Pagelet.prototype.destroy = function destroy() {
+Pagelet.prototype.destroy = function destroy(remove) {
+  var pagelet = this;
+
   this.pipe.free(this); // Automatically schedule this Pagelet instance for re-use.
   this.emit('destroy'); // Execute any extra destroy hooks.
 
@@ -294,23 +293,24 @@ Pagelet.prototype.destroy = function destroy() {
   //
   if (this.placeholders) collection.each(this.placeholders, function (root) {
     while (root.firstChild) root.removeChild(root.firstChild);
+    if (remove && root.parentNode) root.parentNode.removeChild(root);
   });
-  this.placeholders = null;
 
   //
   // Remove the added RPC handlers, make sure we don't delete prototypes.
   //
-  collection.each(this.rpc, function nuke(method) {
+  if (this.rpc && this.rpc.length) collection.each(this.rpc, function nuke(method) {
     if (method in Pagelet.prototype) return;
-
-    delete this[method];
-  }, this);
+    delete pagelet[method];
+  });
 
   //
   // Remove the sandboxing
   //
-  sandbox.kill(this.container.id);
-  this.container = null;
+  if (this.container) sandbox.kill(this.container.id);
+  this.placeholders = this.container = null;
+
+  return this;
 };
 
 //
