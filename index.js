@@ -65,13 +65,13 @@ Pipe.prototype.configure = function configure(options) {
 };
 
 /**
- * Horrible hack, but needed to prevent memory leaks while maintaining sublime
- * performance. See Pagelet.prototype.IEV for more information.
+ * Horrible hack, but needed to prevent memory leaks caused by
+ * `document.createDocumentFragment()` while maintaining sublime performance.
  *
  * @type {Number}
  * @private
  */
-Pipe.prototype.IEV = Pagelet.prototype.IEV;
+Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
