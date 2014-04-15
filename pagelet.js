@@ -148,6 +148,10 @@ Pagelet.prototype.processor = function processor(packet) {
         this.emit.apply(this, packet.args);
       }
     break;
+
+    case 'fragment':
+      this.render(packet.fragment.view);
+    break;
   }
 };
 
