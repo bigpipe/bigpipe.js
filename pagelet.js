@@ -244,6 +244,12 @@ Pagelet.prototype.render = function render(html) {
       fragment.appendChild(div.firstChild);
     }
 
+    //
+    // Clean out old HTML before we append our new HTML or we will get duplicate
+    // DOM.
+    //
+    while (root.firstChild) root.removeChild(root.firstChild);
+
     root.appendChild(fragment);
     if (borked) root.removeChild(div);
   }, this);
