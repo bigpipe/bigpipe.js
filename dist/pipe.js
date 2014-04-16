@@ -179,6 +179,7 @@ function Pipe(server, options) {
   this.maximum = 20;                    // Max Pagelet instances we can reuse.
   this.assets = {};                     // Asset cache.
   this.root = document.documentElement; // The <html> element.
+  this.expected = +options.pagelets;    // Pagelets that this page requires.
 
   EventEmitter.call(this);
 
@@ -236,8 +237,19 @@ Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.user
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
-  if (!this.has(name)) this.create(name, data);
+  data = data || {};
 
+  if (!this.has(name)) this.create(name, data);
+  if (data.processed !== this.expected) return this;
+
+  var root = this.root
+    , className = (root.className || '').split(' ');
+
+  if (~className.indexOf('pagelets-loading')) {
+    className.splice(className.indexOf('pagelets-loading'), 1);
+  }
+
+  root.className = className.join(' ');
   return this;
 };
 
