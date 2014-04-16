@@ -200,16 +200,19 @@ Pipe.prototype.constructor = Pipe;
  * @api private
  */
 Pipe.prototype.configure = function configure(options) {
-  var root = this.root;
+  var root = this.root
+    , className = (root.className || '').split(' ');
 
-  if (root.className.indexOf('no_js')) {
-    root.className = root.className.replace('no_js', '');
+  if (~className.indexOf('no_js')) {
+    className.splice(className.indexOf('no_js'), 1);
   }
 
   //
-  // Catch all form submits.
+  // Add a loading className so we can style the page accordingly and add all
+  // classNames back to the root element.
   //
-  root.addEventListener('submit', this.submit, false);
+  className.push('pagelets-loading');
+  root.className = className.join(' ');
 
   return this;
 };
@@ -233,53 +236,9 @@ Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.user
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
-  if (!this.has(name)) return this.create(name, data);
+  if (!this.has(name)) this.create(name, data);
 
   return this;
-};
-
-/**
- * Catch all form submits and add reference to originating pagelet.
- *
- * @param {Event} evt The submit event.
- * @returns {Void}
- * @api public
- */
-Pipe.prototype.submit = function submit(evt) {
-  var src = evt.target || evt.srcElement
-    , form = src
-    , action
-    , name;
-
-  while (src.parentNode) {
-    src = src.parentNode;
-    if ('getAttribute' in src) name = src.getAttribute('data-pagelet');
-    if (name) break;
-  }
-
-  //
-  // In previous versions we had and `evt.preventDefault()` so we could make
-  // changes to the form and re-submit it. But there's a big problem with that
-  // and that is that in FireFox it loses the reference to the button that
-  // triggered the submit. If causes buttons that had a name and value:
-  //
-  // ```html
-  // <button name="key" value="value" type="submit">submit</button>
-  // ```
-  //
-  // To be missing from the POST or GET. We managed to go around it by not
-  // simply preventing the default action. If this still does not not work we
-  // need to transform the form URLs once the pagelets are loaded.
-  //
-  if (name) {
-    action = form.getAttribute('action');
-    form.setAttribute('action', [
-      action,
-      ~action.indexOf('?') ? '&' : '?',
-      '_pagelet=',
-      name
-    ].join(''));
-  }
 };
 
 /**
@@ -292,9 +251,8 @@ Pipe.prototype.submit = function submit(evt) {
  */
 Pipe.prototype.create = function create(name, data) {
   var pagelet = this.pagelets[name] = this.alloc();
-  pagelet.configure(name, data);
 
-  return this;
+  pagelet.configure(name, data);
 };
 
 /**
@@ -2338,6 +2296,11 @@ Pagelet.prototype.configure = function configure(name, data) {
   }
 
   //
+  // Attach event listeners for FORM posts so we can intercept those.
+  //
+  this.submit();
+
+  //
   // Create a real-time Substream over which we can communicate over without.
   //
   this.substream = this.stream.substream(this.name);
@@ -2345,10 +2308,11 @@ Pagelet.prototype.configure = function configure(name, data) {
     pagelet.processor(packet);
   });
 
-  this.orchestrate.write({
-    type: 'pagelet',                        // Message type
-    name: name                              // Pagelet name.
-  });
+  //
+  // Register the pagelet with the BigPipe server as an indication that we've
+  // been fully loaded and ready for action.
+  //
+  this.orchestrate.write({ type: 'pagelet', name: name });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
@@ -2367,8 +2331,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   // - Does not override the build-in prototypes of the Pagelet.
   //
   collection.each(this.rpc, function rpc(method) {
-    var pagelet = this
-      , counter = 0;
+    var counter = 0;
 
     //
     // Never override build-in methods as this WILL affect the way a Pagelet is
@@ -2376,21 +2339,16 @@ Pagelet.prototype.configure = function configure(name, data) {
     //
     if (method in Pagelet.prototype) return;
 
-    this[method] = function rpcfactory() {
+    pagelet[method] = function rpcfactory() {
       var args = Array.prototype.slice.call(arguments, 0)
         , id = method +'#'+ (++counter);
 
       pagelet.once('rpc::'+ id, args.pop());
-      pagelet.substream.write({
-        method: method,
-        type: 'rpc',
-        args: args,
-        id: id
-      });
+      pagelet.substream.write({ method: method, type: 'rpc', args: args, id: id });
 
       return pagelet;
     };
-  }, this);
+  });
 
   //
   // Should be called before we create `rpc` hooks.
@@ -2406,6 +2364,120 @@ Pagelet.prototype.configure = function configure(name, data) {
     pagelet.render(pagelet.parse());
     pagelet.initialise();
   }, { context: this.pipe, timeout: 25 * 1000 });
+};
+
+/**
+ * Intercept form posts and stream them over our substream instead to prevent
+ * full page reload.
+ *
+ * @returns {Pagelet}
+ * @api private
+ */
+Pagelet.prototype.submit = function submit() {
+  var pagelet = this;
+
+  /**
+   * Handles the actual form submission.
+   *
+   * @param {Event} evt The submit event.
+   */
+  function submission(evt) {
+    var form = evt.target || evt.srcElement
+      , active = document.activeElement
+      , elements = form.elements
+      , data = {}
+      , element
+      , action
+      , i;
+
+    //
+    // In previous versions we had and `evt.preventDefault()` so we could make
+    // changes to the form and re-submit it. But there's a big problem with that
+    // and that is that in FireFox it loses the reference to the button that
+    // triggered the submit. If causes buttons that had a name and value:
+    //
+    // ```html
+    // <button name="key" value="value" type="submit">submit</button>
+    // ```
+    //
+    // To be missing from the POST or GET. We managed to go around it by not
+    // simply preventing the default action. If this still does not not work we
+    // need to transform the form URLs once the pagelets are loaded.
+    //
+    if ('getAttribute' in form && form.getAttribute('pagelet-async') === 'false') {
+      action = form.getAttribute('action');
+      return form.setAttribute('action', [
+        action,
+        ~action.indexOf('?') ? '&' : '?',
+        '_pagelet=',
+        name
+      ].join(''));
+    }
+
+    //
+    // As we're submitting the form over our real-time connection and gather the
+    // data our self we can safely prevent default.
+    //
+    evt.preventDefault();
+
+    if (active && active.name) {
+      data[active.name] = active.value;
+    } else {
+      active = false;
+    }
+
+    for (i = 0; i < elements.length; i++) {
+      element = elements[i];
+
+      //
+      // Story time children! Once upon a time there was a developer, this
+      // developer created a form with a lot of submit buttons. The developer
+      // knew that when a user clicked on one of those buttons the value="" and
+      // name="" attributes would get send to the server so he could see which
+      // button people had clicked. He implemented this and all was good. Until
+      // someone captured the `submit` event in the browser which didn't have
+      // a reference to the clicked element. This someone found out that the
+      // `document.activeElement` pointed to the last clicked element and used
+      // that to restore the same functionality and the day was saved again.
+      //
+      // There are valuable lessons to be learned here. Submit buttons are the
+      // suck. PERIOD.
+      //
+      if (
+           !element.name
+        || element.name in data
+        || (active && active.name === element.name)) continue;
+
+      // @TODO handle file uploads
+      data[element.name] = element.value;
+    }
+
+    //
+    // Now that we have a JSON object, we can just send it over our real-time
+    // connection and wait for a page refresh.
+    //
+    pagelet.substream.write({
+      type: (form.method || 'GET').toLowerCase(),
+      body: data
+    });
+  }
+
+  collection.each(this.placeholders, function each(root) {
+    root.addEventListener('submit', submission, false);
+  });
+
+  //
+  // When the pagelet is removed we want to remove our listeners again. To
+  // prevent memory leaks as well possible duplicate listeners when a pagelet is
+  // loaded in the same placeholder (in case of a full reload).
+  //
+  this.once('destroy', function destroy() {
+    collection.each(pagelet.placeholders, function each(root) {
+      root.removeEventListener('submit', submission, false);
+    });
+  });
+
+  return this;
 };
 
 /**
@@ -2427,7 +2499,7 @@ Pagelet.prototype.processor = function processor(packet) {
     break;
 
     case 'fragment':
-      this.render(packet.fragment.view);
+      this.render(packet.frag.view);
     break;
   }
 };
@@ -2513,6 +2585,15 @@ Pagelet.prototype.render = function render(html) {
       , div = document.createElement('div')
       , borked = this.pipe.IEV < 7;
 
+    //
+    // Clean out old HTML before we append our new HTML or we will get duplicate
+    // DOM. Or there might have been a loading placeholder in place that needs
+    // to be removed.
+    //
+    while (root.firstChild) {
+      root.removeChild(root.firstChild);
+    }
+
     if (borked) root.appendChild(div);
 
     div.innerHTML = html;
@@ -2520,12 +2601,6 @@ Pagelet.prototype.render = function render(html) {
     while (div.firstChild) {
       fragment.appendChild(div.firstChild);
     }
-
-    //
-    // Clean out old HTML before we append our new HTML or we will get duplicate
-    // DOM.
-    //
-    while (root.firstChild) root.removeChild(root.firstChild);
 
     root.appendChild(fragment);
     if (borked) root.removeChild(div);
