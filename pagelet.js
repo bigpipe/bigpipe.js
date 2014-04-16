@@ -296,7 +296,7 @@ Pagelet.prototype.broadcast = function broadcast(event) {
   this.emit.apply(this, arguments);
   this.pipe.emit.apply(this.pipe, [
     this.name +'::'+ event,
-    this.pipe
+    this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
   return this;
