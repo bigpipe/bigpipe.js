@@ -50,16 +50,19 @@ Pipe.prototype.constructor = Pipe;
  * @api private
  */
 Pipe.prototype.configure = function configure(options) {
-  var root = this.root;
+  var root = this.root
+    , className = (root.className || '').split(' ');
 
-  if (root.className.indexOf('no_js')) {
-    root.className = root.className.replace('no_js', '');
+  if (~className.indexOf('no_js')) {
+    className.splice(className.indexOf('no_js'), 1);
   }
 
   //
-  // Catch all form submits.
+  // Add a loading className so we can style the page accordingly and add all
+  // classNames back to the root element.
   //
-  root.addEventListener('submit', this.submit, false);
+  className.push('pagelets-loading');
+  root.className = className.join(' ');
 
   return this;
 };
@@ -83,53 +86,9 @@ Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.user
  * @api public
  */
 Pipe.prototype.arrive = function arrive(name, data) {
-  if (!this.has(name)) return this.create(name, data);
+  if (!this.has(name)) this.create(name, data);
 
   return this;
-};
-
-/**
- * Catch all form submits and add reference to originating pagelet.
- *
- * @param {Event} evt The submit event.
- * @returns {Void}
- * @api public
- */
-Pipe.prototype.submit = function submit(evt) {
-  var src = evt.target || evt.srcElement
-    , form = src
-    , action
-    , name;
-
-  while (src.parentNode) {
-    src = src.parentNode;
-    if ('getAttribute' in src) name = src.getAttribute('data-pagelet');
-    if (name) break;
-  }
-
-  //
-  // In previous versions we had and `evt.preventDefault()` so we could make
-  // changes to the form and re-submit it. But there's a big problem with that
-  // and that is that in FireFox it loses the reference to the button that
-  // triggered the submit. If causes buttons that had a name and value:
-  //
-  // ```html
-  // <button name="key" value="value" type="submit">submit</button>
-  // ```
-  //
-  // To be missing from the POST or GET. We managed to go around it by not
-  // simply preventing the default action. If this still does not not work we
-  // need to transform the form URLs once the pagelets are loaded.
-  //
-  if (name) {
-    action = form.getAttribute('action');
-    form.setAttribute('action', [
-      action,
-      ~action.indexOf('?') ? '&' : '?',
-      '_pagelet=',
-      name
-    ].join(''));
-  }
 };
 
 /**
@@ -142,9 +101,8 @@ Pipe.prototype.submit = function submit(evt) {
  */
 Pipe.prototype.create = function create(name, data) {
   var pagelet = this.pagelets[name] = this.alloc();
-  pagelet.configure(name, data);
 
-  return this;
+  pagelet.configure(name, data);
 };
 
 /**
