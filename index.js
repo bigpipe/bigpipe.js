@@ -11,6 +11,12 @@ var EventEmitter = require('eventemitter3')
  * uses the BigPipe framework. It assumes that this library is bundled with
  * a Primus instance which uses the `substream` plugin.
  *
+ * Options:
+ *
+ * - limit: The amount pagelet instances we can reuse.
+ * - pagelets: The amount of pagelets we're expecting to load.
+ * - id: The id of the page that we're loading.
+ *
  * @constructor
  * @param {String} server The server address we need to connect to.
  * @param {Object} options Pipe configuration.
@@ -18,18 +24,22 @@ var EventEmitter = require('eventemitter3')
  */
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
+  if ('object' === typeof server) {
+    options = server;
+    server = undefined;
+  }
 
   options = options || {};
 
-  this.server = server;                 // The server address we connect to.
-  this.options = options;               // Reference to the used options.
-  this.stream = null;                   // Reference to the connected Primus socket.
-  this.pagelets = {};                   // Collection of different pagelets.
-  this.freelist = [];                   // Collection of unused Pagelet instances.
-  this.maximum = 20;                    // Max Pagelet instances we can reuse.
-  this.assets = {};                     // Asset cache.
-  this.root = document.documentElement; // The <html> element.
-  this.expected = +options.pagelets;    // Pagelets that this page requires.
+  this.server = server;                   // The server address we connect to.
+  this.options = options;                 // Reference to the used options.
+  this.stream = null;                     // Reference to the connected Primus socket.
+  this.pagelets = {};                     // Collection of different pagelets.
+  this.freelist = [];                     // Collection of unused Pagelet instances.
+  this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
+  this.assets = {};                       // Asset cache.
+  this.root = document.documentElement;   // The <html> element.
+  this.expected = +options.pagelets || 0; // Pagelets that this page requires.
 
   EventEmitter.call(this);
 
@@ -54,15 +64,13 @@ Pipe.prototype.configure = function configure(options) {
   var root = this.root
     , className = (root.className || '').split(' ');
 
-  if (~className.indexOf('no_js')) {
-    className.splice(className.indexOf('no_js'), 1);
-  }
+  if (~className.indexOf('no_js')) className.splice(className.indexOf('no_js'), 1);
 
   //
   // Add a loading className so we can style the page accordingly and add all
   // classNames back to the root element.
   //
-  className.push('pagelets-loading');
+  if (!~className.indexOf('pagelets-loading')) className.push('pagelets-loading');
   root.className = className.join(' ');
 
   return this;
@@ -100,6 +108,8 @@ Pipe.prototype.arrive = function arrive(name, data) {
   }
 
   root.className = className.join(' ');
+  this.emit('loaded');
+
   return this;
 };
 
@@ -112,9 +122,15 @@ Pipe.prototype.arrive = function arrive(name, data) {
  * @api private
  */
 Pipe.prototype.create = function create(name, data) {
-  var pagelet = this.pagelets[name] = this.alloc();
+  var pagelet = this.pagelets[name] = this.alloc()
+    , nr = data.processed || 0;
 
   pagelet.configure(name, data);
+
+  //
+  // A new pagelet has been loaded, emit a progress event.
+  //
+  this.emit('progress', Math.round((nr / this.expected) * 100), nr, pagelet);
 };
 
 /**
