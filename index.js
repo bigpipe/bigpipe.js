@@ -260,7 +260,7 @@ Pipe.prototype.connect = function connect(url, options) {
     querystring._bp_pid = pipe.id;
     querystring._bp_url = pipe.url;
 
-    options.query = pipe.querystringify(querystring);
+    options.query = primus.querystringify(querystring);
   });
 
   //
@@ -270,25 +270,6 @@ Pipe.prototype.connect = function connect(url, options) {
   primus.open();
 
   return this;
-};
-
-/**
- * Transform a query string object back in to string equiv.
- *
- * @param {Object} obj The query string object.
- * @returns {String}
- * @api private
- */
-Pipe.prototype.querystringify = function querystringify(obj) {
-  var pairs = [];
-
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      pairs.push(key +'='+ obj[key]);
-    }
-  }
-
-  return pairs.join('&');
 };
 
 //
