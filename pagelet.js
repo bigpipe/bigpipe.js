@@ -413,15 +413,14 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.pipe.free(this); // Automatically schedule this Pagelet instance for re-use.
   this.emit('destroy'); // Execute any extra destroy hooks.
 
   //
   // Remove all the HTML from the placeholders.
   //
   if (this.placeholders) collection.each(this.placeholders, function remove(root) {
-    while (root.firstChild) root.removeChild(root.firstChild);
     if (remove && root.parentNode) root.parentNode.removeChild(root);
+    else while (root.firstChild) root.removeChild(root.firstChild);
   });
 
   //
@@ -437,6 +436,18 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   if (this.container) sandbox.kill(this.container.id);
   this.placeholders = this.container = null;
+
+  //
+  // Announce the destruction and remove it.
+  //
+  if (this.substream) this.substream.end({
+    type: 'end'
+  });
+
+  //
+  // Everything has been cleaned up, release it to our Freelist Pagelet pool.
+  //
+  this.pipe.free(this);
 
   return this;
 };
