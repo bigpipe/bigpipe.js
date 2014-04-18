@@ -85,6 +85,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
   this.container = this.sandbox.create();   // Create an application sandbox.
+  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -128,7 +129,7 @@ Pagelet.prototype.configure = function configure(name, data) {
 
     pagelet.render(pagelet.parse());
     pagelet.initialise();
-  }, { context: this.pipe, timeout: 25 * 1000 });
+  }, { context: this.pipe, timeout: this.timeout });
 };
 
 /**
@@ -275,7 +276,7 @@ Pagelet.prototype.processor = function processor(packet) {
  * @api private
  */
 Pagelet.prototype.initialise = function initialise() {
-  this.broadcast('initialise', this);
+  this.broadcast('initialise');
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -432,7 +433,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   });
 
   //
-  // Remove the sandboxing
+  // Remove the sandboxing.
   //
   if (this.container) sandbox.kill(this.container.id);
   this.placeholders = this.container = null;

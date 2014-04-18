@@ -131,6 +131,7 @@ Pipe.prototype.create = function create(name, data) {
   // A new pagelet has been loaded, emit a progress event.
   //
   this.emit('progress', Math.round((nr / this.expected) * 100), nr, pagelet);
+  this.emit('create', pagelet);
 };
 
 /**
@@ -153,7 +154,9 @@ Pipe.prototype.has = function has(name) {
  */
 Pipe.prototype.remove = function remove(name) {
   if (this.has(name)) {
+    this.emit('remove', this.pagelets[name]);
     this.pagelets[name].destroy();
+
     delete this.pagelets[name];
   }
 
@@ -165,11 +168,13 @@ Pipe.prototype.remove = function remove(name) {
  *
  * @param {String} event The event that needs to be broadcasted.
  * @returns {Pipe}
- * @api private
+ * @api public
  */
 Pipe.prototype.broadcast = function broadcast(event) {
   for (var pagelet in this.pagelets) {
-    this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+    if (this.pagelets.hasOwnProperty(pagelet)) {
+      this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+    }
   }
 
   return this;
