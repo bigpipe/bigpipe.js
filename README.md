@@ -89,6 +89,12 @@ Event                 | Receives                   | Description
 `loaded`              |                            | All Pagelets have been loaded.
 `create`              | Pagelet                    | A new Pagelet has been created.
 `remove`              | Pagelet                    | A pagelet has been removed.
+`<name>::error`       | Error                      | We've failed to load the Pagelet.
+`<name>::loaded`      |                            | All assets have been loaded.
+`<name>::configure`   | Data object                | Pagelet has been configured.
+`<name>::initialise`  |                            | Pagelet has been initialised.
+`<name>::render`      | html                       | Rendered the HTML.
+`<name>::destroy`     |                            | Pagelet has been destroyed.
 
 ### BigPipe#arrive
 
