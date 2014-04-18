@@ -291,7 +291,7 @@ Pagelet.prototype.initialise = function initialise() {
  *
  * @param {String} event The name of the event we should emit
  * @returns {Pagelet}
- * @api private
+ * @api public
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
   this.emit.apply(this, arguments);
@@ -309,7 +309,7 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
  * @returns {Array} A list of HTML elements that match.
- * @api private
+ * @api public
  */
 Pagelet.prototype.$ = function $(attribute, value) {
   if (document && 'querySelectorAll' in document) {
@@ -346,7 +346,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
 Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length || !html) return false;
 
-  collection.each(this.placeholders, function (root) {
+  collection.each(this.placeholders, function each(root) {
     var fragment = document.createDocumentFragment()
       , div = document.createElement('div')
       , borked = this.pipe.IEV < 7;
@@ -419,7 +419,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Remove all the HTML from the placeholders.
   //
-  if (this.placeholders) collection.each(this.placeholders, function (root) {
+  if (this.placeholders) collection.each(this.placeholders, function remove(root) {
     while (root.firstChild) root.removeChild(root.firstChild);
     if (remove && root.parentNode) root.parentNode.removeChild(root);
   });
