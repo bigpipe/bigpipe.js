@@ -89,12 +89,12 @@ Event                 | Receives                   | Description
 `loaded`              |                            | All Pagelets have been loaded.
 `create`              | Pagelet                    | A new Pagelet has been created.
 `remove`              | Pagelet                    | A pagelet has been removed.
-`<name>::error`       | Error                      | We've failed to load the Pagelet.
-`<name>::loaded`      |                            | All assets have been loaded.
-`<name>::configure`   | Data object                | Pagelet has been configured.
-`<name>::initialise`  |                            | Pagelet has been initialised.
-`<name>::render`      | html                       | Rendered the HTML.
-`<name>::destroy`     |                            | Pagelet has been destroyed.
+`<name>::error`       | Pagelet, Error             | We've failed to load the Pagelet.
+`<name>::loaded`      | Pagelet                    | All assets have been loaded.
+`<name>::configure`   | Pagelet, Data object       | Pagelet has been configured.
+`<name>::initialise`  | Pagelet                    | Pagelet has been initialised.
+`<name>::render`      | Pagelet, html              | Rendered the HTML.
+`<name>::destroy`     | Pagelet                    | Pagelet has been destroyed.
 
 ### BigPipe#arrive
 
@@ -208,6 +208,25 @@ bigpipe.broadcast('foo bar', 'multiple', 1, 'args', { no: 'problem' });
 ```
 ### Pagelet: Configuration
 
+Unlike the `BigPipe` class you do not need to create instances of the Pagelet
+your self. This is all orchestrated by the [BigPipe.arrive] method. The reason
+for this is that it needs to have a reference to the BigPipe instance as well as
+one to the created [Primus] connection so we can create a dedicated [substream]
+for each pagelet.
+
+```js
+var pagelet = new Pagelet(bigpipe);
+```
+
+The Pagelet instances are simply allocated and returned to a pool so they can be
+re-used and improve garbage collection. The options it receives are applied
+every time the `Pagelet.configuration` is called which again is done in the
+BigPipe.arrive method.
+
+```js
+pagelet.configure('pagelet name', { received data/options });
+```
+
 The following options are accepted:
 
 - **id**: The `id` of the Pagelet that we're loading.
@@ -226,6 +245,30 @@ The following options are accepted:
   Pagelets resources to be loaded. If it takes longer than this we assume a load
   failure.
 
+When the pagelet is configured it:
+
+01. Finds all placeholders for the given name based on the `data-pagelet=""`
+    attribute on HTML elements.
+02. Stores the name as `.name` and `data.id` as `.id`.
+03. If `remove` as option is set. It will call `Pagelet.destroy(true)` so it
+    removes the placeholder elements.
+04. It attaches `<form>` submit listeners so we re-route those requests over our
+    real-time connection.
+05. Creates a [substream] with the Pagelet's name so we can multiplex multiple
+    Pagelets over one single real-time connection.
+06. Stores some of the data properties.
+07. Generates methods from the given `rpc` array.
+08. Broadcasts the `configured` event.
+09. It loads all `css` and `js` files.
+10. When all assets have been loaded it will emit `loaded`
+11. We'll find the HTML that needs to be rendered using the `Pagelet.parse` and
+    render it in the placeholders using `Pagelet.render(html)`
+12. The render method emits `render`.
+13. Finally everything is done and emit the `initialise` event.
+
+Congratulations you've read through the whole configuration process of a
+pagelet. Hopefully this makes everything a bit more clear on how they work.
+
 ### Pagelet: Events
 
 The created `Pagelet` instance is an [EventEmitter3]. The following events are
@@ -238,7 +281,34 @@ Event                 | Receives                   | Description
 `configure`           | Data object                | Pagelet has been configured.
 `initialise`          |                            | Pagelet has been initialised.
 `render`              | html                       | Rendered the HTML.
-`destroy`             |                            | Pagelet has been destroyed.
+`destroy`             |                            | Pagelet is about to be destroyed.
+
+### Pagelet#destroy
+
+**public**, __returns BigPipe__
+
+```js
+pagelet.destroy(boolean);
+```
+
+Destroy the created Pagelet. If `true` as argument is given it will also remove
+the placeholders the Pagelet was running in. Before we start with the
+destruction process we emit an `destroy` event. This allows you clean up the
+pagelet if needed.
+
+```js
+pagelet.on('destroy', function () {
+  console.log('Pagelet', this.name, 'has been destroyed');
+});
+```
+
+After the event is emitted we:
+
+- Remove all the elements from the Pagelet placeholder.
+- If the `remove` boolean is given, the placeholder is also removed.
+- If `rpc` methods were added to the Pagelet, they are deleted.
+- Possible JavaScript sandboxes are cleared.
+- The pagelet is freed and returned to the Pagelet pool.
 
 ## License
 
