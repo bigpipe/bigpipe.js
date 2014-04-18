@@ -34,8 +34,12 @@ We assume that this code is loaded in an environment that has [primus] and it's
 - [Events](#bigpipe-events)
 - [BigPipe.arrive](#bigpipearrive)
 - [BigPipe.has](#bigpipehas)
+- [BigPipe.remove](#bigpiperemove)
+- [BigPipe.broadcast](#bigpipebroadcast)
 
 **Pagelet instance**
+- [Configuration](#pagelet-configuration);
+- [Events](#pagelet-events);
 
 ### BigPipe: Configuration
 
@@ -83,10 +87,12 @@ Event                 | Receives                   | Description
 ----------------------|----------------------------|--------------------------------
 `progress`            | percentage, index, Pagelet | A new Pagelet has been loaded.
 `loaded`              |                            | All Pagelets have been loaded.
+`create`              | Pagelet                    | A new Pagelet has been created.
+`remove`              | Pagelet                    | A pagelet has been removed.
 
 ### BigPipe#arrive
 
-_public_, **returns BigPipe**.
+**public**, _returns BigPipe_.
 
 ```js
 bigpipe.arrive('pagelet name', { data object });
@@ -101,6 +107,14 @@ been loaded.
 ```js
 bigpipe.on('progress', function progress(percentage, index, pagelet) {
   console.log('loaded %s of %s pagelets. We are %s% loaded', this.expected, index, percentage);
+});
+```
+
+But also an `create` event:
+
+```js
+bigpipe.on('create', function create(pagelet) {
+  console.log('A new pagelet has been created', pagelet.name);
 });
 ```
 
@@ -142,13 +156,83 @@ bigpipe.arrive("packages", {
 
 ### BigPipe#has
 
-_public_, **returns boolean**.
+**public**, _returns boolean_.
 
 ```js
 bigpipe.has('pagelet name');
 ```
 
 Check if a Pagelet has already been loaded/received on the page.
+
+### BigPipe#remove
+
+**public**, _returns BigPipe_
+
+```js
+bigpipe.remove('pagelet name');
+```
+
+Removes a pagelet from our internal Pagelet object. The `remove` event is
+emitted before we actually destroy the pagelet that gets removed so you could do
+some additional cleanup if needed. After the event is emitted we call the
+[Pagelet#destroy](#pageletdestroy) method and remove it from our internal
+reference.
+
+```js
+bigpipe.on('remove', function (pagelet) {
+  console.log('removed', pagelet);
+});
+
+bigpipe.remove('pagelet name');
+```
+
+### BigPipe#broadcast
+
+**public**, __returns BigPipe__
+
+```js
+bigpipe.broadcast(event, [args]);
+```
+
+Broadcast will emit the given event on every single added Pagelet instance.
+
+```js
+bigpipe.broadcast('hello', 'world');
+bigpipe.broadcast('foo bar', 'multiple', 1, 'args', { no: 'problem' });
+```
+### Pagelet: Configuration
+
+The following options are accepted:
+
+- **id**: The `id` of the Pagelet that we're loading.
+- **remove**: Do we need to remove the placeholder from the DOM? You usually
+  want to do this with optional pagelets that require authorization.
+- **css**: An array of CSS files that need to be loaded before we can display
+  the Pagelet's HTML.
+- **js**: Array of JS files that need to be loaded before we can display the
+  Pagelet's HTML.
+- **data**: Addition data that should be made available on the client. This is
+  data that you've selected using the
+  [Pagelet.query](https://github.com/bigpipe/pagelet#pagelet-query) on the server.
+- **rpc**: An array of method names on the server which should be introduced on
+  this Pagelet which will do RPC calls.
+- **timeout**: The maximum amount of milliseconds we should wait for all the
+  Pagelets resources to be loaded. If it takes longer than this we assume a load
+  failure.
+
+### Pagelet: Events
+
+The created `Pagelet` instance is an [EventEmitter3]. The following events are
+emitted by the Pagelet:
+
+Event                 | Receives                   | Description
+----------------------|----------------------------|--------------------------------
+`error`               | Error                      | We've failed to load the Pagelet.
+`loaded`              |                            | All assets have been loaded.
+`configure`           | Data object                | Pagelet has been configured.
+`initialise`          |                            | Pagelet has been initialised.
+`render`              | html                       | Rendered the HTML.
+`destroy`             |                            | Pagelet has been destroyed.
 
 ## License
 
