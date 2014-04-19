@@ -148,13 +148,7 @@ Pagelet.prototype.submit = function submit() {
    * @param {Event} evt The submit event.
    */
   function submission(evt) {
-    var form = evt.target || evt.srcElement
-      , active = document.activeElement
-      , elements = form.elements
-      , data = {}
-      , element
-      , action
-      , i;
+    var form = evt.target || evt.srcElement;
 
     //
     // In previous versions we had and `evt.preventDefault()` so we could make
@@ -170,8 +164,8 @@ Pagelet.prototype.submit = function submit() {
     // simply preventing the default action. If this still does not not work we
     // need to transform the form URLs once the pagelets are loaded.
     //
-    if ('getAttribute' in form && form.getAttribute('pagelet-async') === 'false') {
-      action = form.getAttribute('action');
+    if ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false') {
+      var action = form.getAttribute('action');
       return form.setAttribute('action', [
         action,
         ~action.indexOf('?') ? '&' : '?',
@@ -185,47 +179,7 @@ Pagelet.prototype.submit = function submit() {
     // data our self we can safely prevent default.
     //
     evt.preventDefault();
-
-    if (active && active.name) {
-      data[active.name] = active.value;
-    } else {
-      active = false;
-    }
-
-    for (i = 0; i < elements.length; i++) {
-      element = elements[i];
-
-      //
-      // Story time children! Once upon a time there was a developer, this
-      // developer created a form with a lot of submit buttons. The developer
-      // knew that when a user clicked on one of those buttons the value="" and
-      // name="" attributes would get send to the server so he could see which
-      // button people had clicked. He implemented this and all was good. Until
-      // someone captured the `submit` event in the browser which didn't have
-      // a reference to the clicked element. This someone found out that the
-      // `document.activeElement` pointed to the last clicked element and used
-      // that to restore the same functionality and the day was saved again.
-      //
-      // There are valuable lessons to be learned here. Submit buttons are the
-      // suck. PERIOD.
-      //
-      if (
-           !element.name
-        || element.name in data
-        || (active && active.name === element.name)) continue;
-
-      // @TODO handle file uploads
-      data[element.name] = element.value;
-    }
-
-    //
-    // Now that we have a JSON object, we can just send it over our real-time
-    // connection and wait for a page refresh.
-    //
-    pagelet.substream.write({
-      type: (form.method || 'GET').toLowerCase(),
-      body: data
-    });
+    pagelet.post(form);
   }
 
   collection.each(this.placeholders, function each(root) {
@@ -244,6 +198,64 @@ Pagelet.prototype.submit = function submit() {
   });
 
   return this;
+};
+
+/**
+ * Post the contents of a <form> to the server.
+ *
+ * @param {FormElement} form Form that needs to be posted.
+ * @returns {Object} The data that is ported to the server.
+ * @api public
+ */
+Pagelet.prototype.post = function post(form) {
+  var active = document.activeElement
+  , elements = form.elements
+  , data = {}
+  , element
+  , i;
+
+  if (active && active.name) {
+    data[active.name] = active.value;
+  } else {
+    active = false;
+  }
+
+  for (i = 0; i < elements.length; i++) {
+    element = elements[i];
+
+    //
+    // Story time children! Once upon a time there was a developer, this
+    // developer created a form with a lot of submit buttons. The developer
+    // knew that when a user clicked on one of those buttons the value="" and
+    // name="" attributes would get send to the server so he could see which
+    // button people had clicked. He implemented this and all was good. Until
+    // someone captured the `submit` event in the browser which didn't have
+    // a reference to the clicked element. This someone found out that the
+    // `document.activeElement` pointed to the last clicked element and used
+    // that to restore the same functionality and the day was saved again.
+    //
+    // There are valuable lessons to be learned here. Submit buttons are the
+    // suck. PERIOD.
+    //
+    if (
+         !element.name
+      || element.name in data
+      || (active && active.name === element.name)) continue;
+
+    // @TODO handle file uploads
+    data[element.name] = element.value;
+  }
+
+  //
+  // Now that we have a JSON object, we can just send it over our real-time
+  // connection and wait for a page refresh.
+  //
+  this.substream.write({
+    type: (form.method || 'GET').toLowerCase(),
+    body: data
+  });
+
+  return data;
 };
 
 /**
