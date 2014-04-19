@@ -63,7 +63,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   // Attach event listeners for FORM posts so we can intercept those.
   //
-  this.submit();
+  this.listen();
 
   //
   // Create a real-time Substream over which we can communicate over without.
@@ -139,15 +139,17 @@ Pagelet.prototype.configure = function configure(name, data) {
  * @returns {Pagelet}
  * @api private
  */
-Pagelet.prototype.submit = function submit() {
+Pagelet.prototype.listen = function listen() {
   var pagelet = this;
 
   /**
    * Handles the actual form submission.
    *
    * @param {Event} evt The submit event.
+   * @api private
    */
   function submission(evt) {
+    evt = evt || window.event;
     var form = evt.target || evt.srcElement;
 
     //
@@ -179,7 +181,7 @@ Pagelet.prototype.submit = function submit() {
     // data our self we can safely prevent default.
     //
     evt.preventDefault();
-    pagelet.post(form);
+    pagelet.submit(form);
   }
 
   collection.each(this.placeholders, function each(root) {
@@ -191,23 +193,21 @@ Pagelet.prototype.submit = function submit() {
   // prevent memory leaks as well possible duplicate listeners when a pagelet is
   // loaded in the same placeholder (in case of a full reload).
   //
-  this.once('destroy', function destroy() {
+  return this.once('destroy', function destroy() {
     collection.each(pagelet.placeholders, function each(root) {
       root.removeEventListener('submit', submission, false);
     });
   });
-
-  return this;
 };
 
 /**
- * Post the contents of a <form> to the server.
+ * Submit the contents of a <form> to the server.
  *
- * @param {FormElement} form Form that needs to be posted.
+ * @param {FormElement} form Form that needs to be submitted.
  * @returns {Object} The data that is ported to the server.
  * @api public
  */
-Pagelet.prototype.post = function post(form) {
+Pagelet.prototype.submit = function submit(form) {
   var active = document.activeElement
   , elements = form.elements
   , data = {}
@@ -259,12 +259,27 @@ Pagelet.prototype.post = function post(form) {
 };
 
 /**
+ * Get the pagelet contents once again.
+ *
+ * @returns {Pagelet}
+ * @api public
+ */
+Pagelet.prototype.get = function get() {
+  this.substream.write({ type: 'get' });
+
+  return this;
+};
+
+/**
  * Process the incoming messages from our SubStream.
  *
  * @param {Object} packet The decoded message.
+ * @returns {Boolean}
  * @api private
  */
 Pagelet.prototype.processor = function processor(packet) {
+  if ('object' !== typeof packet) return false;
+
   switch (packet.type) {
     case 'rpc':
       this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
@@ -279,7 +294,12 @@ Pagelet.prototype.processor = function processor(packet) {
     case 'fragment':
       this.render(packet.frag.view);
     break;
+
+    default:
+    return false;
   }
+
+  return true;
 };
 
 /**
