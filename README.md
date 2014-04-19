@@ -283,9 +283,29 @@ Event                 | Receives                   | Description
 `render`              | html                       | Rendered the HTML.
 `destroy`             |                            | Pagelet is about to be destroyed.
 
+### Pagelet.name
+
+**public**, __String__
+
+The name of the Pagelet.
+
+### Pagelet.id
+
+**public**, __String__
+
+The unique id of the Pagelet.
+
+### Pagelet.placeholders
+
+**public**, __Array__
+
+Array of placeholders HTML elements that had `data-pagelet` set to the Pagelet's
+name. When the pagelet is rendering all of these pagelets will have their HTML
+updated.
+
 ### Pagelet#destroy
 
-**public**, __returns BigPipe__
+**public**, __returns Pagelet__.
 
 ```js
 pagelet.destroy(boolean);
@@ -309,6 +329,99 @@ After the event is emitted we:
 - If `rpc` methods were added to the Pagelet, they are deleted.
 - Possible JavaScript sandboxes are cleared.
 - The pagelet is freed and returned to the Pagelet pool.
+
+### Pagelet#submit
+
+**public**, __returns Object__.
+
+```js
+pagelet.submit(document.forms[0]);
+```
+
+Submit the contents of the given form to Pagelet on the server using the
+real-time connection. We extract the input/select/textarea/button elements from
+the form and transform it an object. If you have selected a button/input we will
+filter out elements with same name so it doesn't get overridden.
+
+When invoking this method we return the created object which was sent to the
+server.
+
+```html
+<form id="foo" action="/foo", method="POST">
+  <input name="foo" value="bar">
+</form>
+```
+
+```js
+var data = pagelet.submit(document.getElementById('foo'));
+
+console.log(data.foo) // "bar"
+```
+
+### Pagelet#get
+
+**public**, __returns Pagelet__.
+
+```js
+pagelet.get();
+```
+
+Re-render the HTML which is retrieved from the server.
+
+### Pagelet#broadcast
+
+**public**, __returns Pagelet__.
+
+```js
+pagelet.broadcast('eventname', [ optional arguments ]);
+```
+
+Broadcast an event to this Pagelet instance as well as the BigPipe instance
+that created the Pagelet. Before emitting the event on the BigPipe instance it
+prefixes the event with the name of the Pagelet and `::`. If the name of your
+Pagelet is `foo` and you emit event `bar` the BigPipe instance will emit
+`foo::bar` as event.
+
+```js
+pagelet.broadcast('foo', 'bar');
+```
+
+### Pagelet#listen
+
+**private**, __returns Pagelet__.
+
+```js
+pagelet.listen();
+```
+
+This **private** method attaches an `submit` listener to the placeholder so it
+can intercept the POST/PUT/GET requests from a `<form>` and re-route them over the
+real-time connection. If a `data-pagelet-async="false"` property is set on the
+form it will simply append `_pagelet=<name>` to the action as query string so the
+server knows which pagelet has submitted this form.
+
+When the Pagelet emits `destroy` we will automatically remove the attached event
+listener.
+
+### Pagelet#processor
+
+**private**, __returns Pagelet__.
+
+```js
+pagelet.processor({ packet object });
+```
+
+This **private** method processes the incoming messages from our [substream]. It
+handles all the RPC calls, Event Emitting, HTML rendering and much more. There
+are many different types of packets that it can process. There a couple
+requirements in order for us to process the data.
+
+- The received packets are objects.
+- Each packet contains a `type` property that indicates the type of package.
+
+```js
+pagelet.processor({ type: 'event', args: ['eventname', 'arg', 'arg' ]});
+```
 
 ## License
 
