@@ -386,6 +386,53 @@ Pagelet is `foo` and you emit event `bar` the BigPipe instance will emit
 pagelet.broadcast('foo', 'bar');
 ```
 
+### Pagelet#$
+
+**public**, __returns Array__.
+
+```js
+pagelet.$('data-pagelet', 'foo');
+```
+
+Find elements in the DOM based on the attribute name and it's value. If
+`querySelectorAll` is not supported in the browser we will fall back to a full
+DOM scan in order to get the correct elements. All items are added to an array.
+If no matching elements are found the Array will be empty.
+
+### Pagelet#render
+
+**public**, __returns Boolean__.
+
+```js
+pagelet.render('<strong>bigpipe ftw</strong>');
+```
+
+Insert the given HTML in the placeholders. If there are elements in the
+placeholder they will be removed first as it might be a good idea to display a
+loading message while we are still rendering or loading the resource from the
+server. Once all HTML has been added to the placeholders we emit the `render`
+event.
+
+```js
+pagelet.render('foo'); // true
+pagelet.placeholders.length = 0;
+pagelet.render('foo'); // false
+```
+
+### Pagelet#parse
+
+**private**, __returns String__.
+
+```js
+var prerendered = pagelet.parse();
+```
+
+Parse the pre-rendered HTML template from the comment node that got injected in
+to our Page when the fragment was written. It's wrapped in a HTML comment so the
+browser doesn't spend any time parsing the contents of it. It searches for the
+comment node based on the `name` property and searches for an element with an
+`data-pagelet-fragment` attribute.
+
 ### Pagelet#listen
 
 **private**, __returns Pagelet__.
