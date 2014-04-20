@@ -161,6 +161,12 @@ var EventEmitter = require('eventemitter3')
  * uses the BigPipe framework. It assumes that this library is bundled with
  * a Primus instance which uses the `substream` plugin.
  *
+ * Options:
+ *
+ * - limit: The amount pagelet instances we can reuse.
+ * - pagelets: The amount of pagelets we're expecting to load.
+ * - id: The id of the page that we're loading.
+ *
  * @constructor
  * @param {String} server The server address we need to connect to.
  * @param {Object} options Pipe configuration.
@@ -168,18 +174,22 @@ var EventEmitter = require('eventemitter3')
  */
 function Pipe(server, options) {
   if (!(this instanceof Pipe)) return new Pipe(server, options);
+  if ('object' === typeof server) {
+    options = server;
+    server = undefined;
+  }
 
   options = options || {};
 
-  this.server = server;                 // The server address we connect to.
-  this.options = options;               // Reference to the used options.
-  this.stream = null;                   // Reference to the connected Primus socket.
-  this.pagelets = {};                   // Collection of different pagelets.
-  this.freelist = [];                   // Collection of unused Pagelet instances.
-  this.maximum = 20;                    // Max Pagelet instances we can reuse.
-  this.assets = {};                     // Asset cache.
-  this.root = document.documentElement; // The <html> element.
-  this.expected = +options.pagelets;    // Pagelets that this page requires.
+  this.server = server;                   // The server address we connect to.
+  this.options = options;                 // Reference to the used options.
+  this.stream = null;                     // Reference to the connected Primus socket.
+  this.pagelets = {};                     // Collection of different pagelets.
+  this.freelist = [];                     // Collection of unused Pagelet instances.
+  this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
+  this.assets = {};                       // Asset cache.
+  this.root = document.documentElement;   // The <html> element.
+  this.expected = +options.pagelets || 0; // Pagelets that this page requires.
 
   EventEmitter.call(this);
 
@@ -204,15 +214,13 @@ Pipe.prototype.configure = function configure(options) {
   var root = this.root
     , className = (root.className || '').split(' ');
 
-  if (~className.indexOf('no_js')) {
-    className.splice(className.indexOf('no_js'), 1);
-  }
+  if (~className.indexOf('no_js')) className.splice(className.indexOf('no_js'), 1);
 
   //
   // Add a loading className so we can style the page accordingly and add all
   // classNames back to the root element.
   //
-  className.push('pagelets-loading');
+  if (!~className.indexOf('pagelets-loading')) className.push('pagelets-loading');
   root.className = className.join(' ');
 
   return this;
@@ -250,6 +258,8 @@ Pipe.prototype.arrive = function arrive(name, data) {
   }
 
   root.className = className.join(' ');
+  this.emit('loaded');
+
   return this;
 };
 
@@ -262,9 +272,16 @@ Pipe.prototype.arrive = function arrive(name, data) {
  * @api private
  */
 Pipe.prototype.create = function create(name, data) {
-  var pagelet = this.pagelets[name] = this.alloc();
+  var pagelet = this.pagelets[name] = this.alloc()
+    , nr = data.processed || 0;
 
   pagelet.configure(name, data);
+
+  //
+  // A new pagelet has been loaded, emit a progress event.
+  //
+  this.emit('progress', Math.round((nr / this.expected) * 100), nr, pagelet);
+  this.emit('create', pagelet);
 };
 
 /**
@@ -287,7 +304,9 @@ Pipe.prototype.has = function has(name) {
  */
 Pipe.prototype.remove = function remove(name) {
   if (this.has(name)) {
+    this.emit('remove', this.pagelets[name]);
     this.pagelets[name].destroy();
+
     delete this.pagelets[name];
   }
 
@@ -299,11 +318,13 @@ Pipe.prototype.remove = function remove(name) {
  *
  * @param {String} event The event that needs to be broadcasted.
  * @returns {Pipe}
- * @api private
+ * @api public
  */
 Pipe.prototype.broadcast = function broadcast(event) {
   for (var pagelet in this.pagelets) {
-    this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+    if (this.pagelets.hasOwnProperty(pagelet)) {
+      this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+    }
   }
 
   return this;
@@ -410,7 +431,7 @@ Pipe.prototype.connect = function connect(url, options) {
     querystring._bp_pid = pipe.id;
     querystring._bp_url = pipe.url;
 
-    options.query = pipe.querystringify(querystring);
+    options.query = primus.querystringify(querystring);
   });
 
   //
@@ -420,25 +441,6 @@ Pipe.prototype.connect = function connect(url, options) {
   primus.open();
 
   return this;
-};
-
-/**
- * Transform a query string object back in to string equiv.
- *
- * @param {Object} obj The query string object.
- * @returns {String}
- * @api private
- */
-Pipe.prototype.querystringify = function querystringify(obj) {
-  var pairs = [];
-
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      pairs.push(key +'='+ obj[key]);
-    }
-  }
-
-  return pairs.join('&');
 };
 
 //
@@ -2310,7 +2312,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   // Attach event listeners for FORM posts so we can intercept those.
   //
-  this.submit();
+  this.listen();
 
   //
   // Create a real-time Substream over which we can communicate over without.
@@ -2332,6 +2334,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
   this.container = this.sandbox.create();   // Create an application sandbox.
+  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -2375,7 +2378,7 @@ Pagelet.prototype.configure = function configure(name, data) {
 
     pagelet.render(pagelet.parse());
     pagelet.initialise();
-  }, { context: this.pipe, timeout: 25 * 1000 });
+  }, { context: this.pipe, timeout: this.timeout });
 };
 
 /**
@@ -2385,22 +2388,18 @@ Pagelet.prototype.configure = function configure(name, data) {
  * @returns {Pagelet}
  * @api private
  */
-Pagelet.prototype.submit = function submit() {
+Pagelet.prototype.listen = function listen() {
   var pagelet = this;
 
   /**
    * Handles the actual form submission.
    *
    * @param {Event} evt The submit event.
+   * @api private
    */
   function submission(evt) {
-    var form = evt.target || evt.srcElement
-      , active = document.activeElement
-      , elements = form.elements
-      , data = {}
-      , element
-      , action
-      , i;
+    evt = evt || window.event;
+    var form = evt.target || evt.srcElement;
 
     //
     // In previous versions we had and `evt.preventDefault()` so we could make
@@ -2416,8 +2415,8 @@ Pagelet.prototype.submit = function submit() {
     // simply preventing the default action. If this still does not not work we
     // need to transform the form URLs once the pagelets are loaded.
     //
-    if ('getAttribute' in form && form.getAttribute('pagelet-async') === 'false') {
-      action = form.getAttribute('action');
+    if ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false') {
+      var action = form.getAttribute('action');
       return form.setAttribute('action', [
         action,
         ~action.indexOf('?') ? '&' : '?',
@@ -2431,47 +2430,7 @@ Pagelet.prototype.submit = function submit() {
     // data our self we can safely prevent default.
     //
     evt.preventDefault();
-
-    if (active && active.name) {
-      data[active.name] = active.value;
-    } else {
-      active = false;
-    }
-
-    for (i = 0; i < elements.length; i++) {
-      element = elements[i];
-
-      //
-      // Story time children! Once upon a time there was a developer, this
-      // developer created a form with a lot of submit buttons. The developer
-      // knew that when a user clicked on one of those buttons the value="" and
-      // name="" attributes would get send to the server so he could see which
-      // button people had clicked. He implemented this and all was good. Until
-      // someone captured the `submit` event in the browser which didn't have
-      // a reference to the clicked element. This someone found out that the
-      // `document.activeElement` pointed to the last clicked element and used
-      // that to restore the same functionality and the day was saved again.
-      //
-      // There are valuable lessons to be learned here. Submit buttons are the
-      // suck. PERIOD.
-      //
-      if (
-           !element.name
-        || element.name in data
-        || (active && active.name === element.name)) continue;
-
-      // @TODO handle file uploads
-      data[element.name] = element.value;
-    }
-
-    //
-    // Now that we have a JSON object, we can just send it over our real-time
-    // connection and wait for a page refresh.
-    //
-    pagelet.substream.write({
-      type: (form.method || 'GET').toLowerCase(),
-      body: data
-    });
+    pagelet.submit(form);
   }
 
   collection.each(this.placeholders, function each(root) {
@@ -2483,11 +2442,79 @@ Pagelet.prototype.submit = function submit() {
   // prevent memory leaks as well possible duplicate listeners when a pagelet is
   // loaded in the same placeholder (in case of a full reload).
   //
-  this.once('destroy', function destroy() {
+  return this.once('destroy', function destroy() {
     collection.each(pagelet.placeholders, function each(root) {
       root.removeEventListener('submit', submission, false);
     });
   });
+};
+
+/**
+ * Submit the contents of a <form> to the server.
+ *
+ * @param {FormElement} form Form that needs to be submitted.
+ * @returns {Object} The data that is ported to the server.
+ * @api public
+ */
+Pagelet.prototype.submit = function submit(form) {
+  var active = document.activeElement
+  , elements = form.elements
+  , data = {}
+  , element
+  , i;
+
+  if (active && active.name) {
+    data[active.name] = active.value;
+  } else {
+    active = false;
+  }
+
+  for (i = 0; i < elements.length; i++) {
+    element = elements[i];
+
+    //
+    // Story time children! Once upon a time there was a developer, this
+    // developer created a form with a lot of submit buttons. The developer
+    // knew that when a user clicked on one of those buttons the value="" and
+    // name="" attributes would get send to the server so he could see which
+    // button people had clicked. He implemented this and all was good. Until
+    // someone captured the `submit` event in the browser which didn't have
+    // a reference to the clicked element. This someone found out that the
+    // `document.activeElement` pointed to the last clicked element and used
+    // that to restore the same functionality and the day was saved again.
+    //
+    // There are valuable lessons to be learned here. Submit buttons are the
+    // suck. PERIOD.
+    //
+    if (
+         !element.name
+      || element.name in data
+      || (active && active.name === element.name)) continue;
+
+    // @TODO handle file uploads
+    data[element.name] = element.value;
+  }
+
+  //
+  // Now that we have a JSON object, we can just send it over our real-time
+  // connection and wait for a page refresh.
+  //
+  this.substream.write({
+    type: (form.method || 'GET').toLowerCase(),
+    body: data
+  });
+
+  return data;
+};
+
+/**
+ * Get the pagelet contents once again.
+ *
+ * @returns {Pagelet}
+ * @api public
+ */
+Pagelet.prototype.get = function get() {
+  this.substream.write({ type: 'get' });
 
   return this;
 };
@@ -2496,9 +2523,12 @@ Pagelet.prototype.submit = function submit() {
  * Process the incoming messages from our SubStream.
  *
  * @param {Object} packet The decoded message.
+ * @returns {Boolean}
  * @api private
  */
 Pagelet.prototype.processor = function processor(packet) {
+  if ('object' !== typeof packet) return false;
+
   switch (packet.type) {
     case 'rpc':
       this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
@@ -2513,7 +2543,12 @@ Pagelet.prototype.processor = function processor(packet) {
     case 'fragment':
       this.render(packet.frag.view);
     break;
+
+    default:
+    return false;
   }
+
+  return true;
 };
 
 /**
@@ -2522,7 +2557,7 @@ Pagelet.prototype.processor = function processor(packet) {
  * @api private
  */
 Pagelet.prototype.initialise = function initialise() {
-  this.broadcast('initialise', this);
+  this.broadcast('initialise');
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -2537,7 +2572,7 @@ Pagelet.prototype.initialise = function initialise() {
  *
  * @param {String} event The name of the event we should emit
  * @returns {Pagelet}
- * @api private
+ * @api public
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
   this.emit.apply(this, arguments);
@@ -2555,7 +2590,7 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
  * @returns {Array} A list of HTML elements that match.
- * @api private
+ * @api public
  */
 Pagelet.prototype.$ = function $(attribute, value) {
   if (document && 'querySelectorAll' in document) {
@@ -2587,12 +2622,12 @@ Pagelet.prototype.$ = function $(attribute, value) {
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
  * @returns {Boolean} Successfully rendered a pagelet.
- * @api private
+ * @api public
  */
 Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length || !html) return false;
 
-  collection.each(this.placeholders, function (root) {
+  collection.each(this.placeholders, function each(root) {
     var fragment = document.createDocumentFragment()
       , div = document.createElement('div')
       , borked = this.pipe.IEV < 7;
@@ -2659,15 +2694,14 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.pipe.free(this); // Automatically schedule this Pagelet instance for re-use.
   this.emit('destroy'); // Execute any extra destroy hooks.
 
   //
   // Remove all the HTML from the placeholders.
   //
-  if (this.placeholders) collection.each(this.placeholders, function (root) {
-    while (root.firstChild) root.removeChild(root.firstChild);
+  if (this.placeholders) collection.each(this.placeholders, function remove(root) {
     if (remove && root.parentNode) root.parentNode.removeChild(root);
+    else while (root.firstChild) root.removeChild(root.firstChild);
   });
 
   //
@@ -2679,10 +2713,22 @@ Pagelet.prototype.destroy = function destroy(remove) {
   });
 
   //
-  // Remove the sandboxing
+  // Remove the sandboxing.
   //
   if (this.container) sandbox.kill(this.container.id);
   this.placeholders = this.container = null;
+
+  //
+  // Announce the destruction and remove it.
+  //
+  if (this.substream) this.substream.end({
+    type: 'end'
+  });
+
+  //
+  // Everything has been cleaned up, release it to our Freelist Pagelet pool.
+  //
+  this.pipe.free(this);
 
   return this;
 };
