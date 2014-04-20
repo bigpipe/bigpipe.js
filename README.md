@@ -32,14 +32,26 @@ We assume that this code is loaded in an environment that has [primus] and it's
 **BigPipe instance**
 - [Configuration](#bigpipe-configuration)
 - [Events](#bigpipe-events)
-- [BigPipe.arrive](#bigpipearrive)
-- [BigPipe.has](#bigpipehas)
-- [BigPipe.remove](#bigpiperemove)
-- [BigPipe.broadcast](#bigpipebroadcast)
+- [BigPipe.arrive()](#bigpipearrive)
+- [BigPipe.has()](#bigpipehas)
+- [BigPipe.remove()](#bigpiperemove)
+- [BigPipe.broadcast()](#bigpipebroadcast)
 
 **Pagelet instance**
-- [Configuration](#pagelet-configuration);
-- [Events](#pagelet-events);
+- [Configuration](#pagelet-configuration)
+- [Events](#pagelet-events)
+- [Pagelet.name](#pageletname)
+- [Pagelet.id](#pageletid)
+- [Pagelet.placeholders](#pageletplaceholders)
+- [Pagelet.destroy()](#pageletdestroy)
+- [Pagelet.submit()](#pageletsubmit)
+- [Pagelet.get()](#pageletget)
+- [Pagelet.broadcast()](#pageletbroadcast)
+- [Pagelet.$()](#pagelet)
+- [Pagelet.render()](#pageletrender)
+- [Pagelet.parse()](#pageletparse)
+- [Pagelet.listen()](#pageletlisten)
+- [Pagelet.processor()](#pageletprocessor)
 
 ### BigPipe: Configuration
 
