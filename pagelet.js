@@ -373,7 +373,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
  * @returns {Boolean} Successfully rendered a pagelet.
- * @api private
+ * @api public
  */
 Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length || !html) return false;
