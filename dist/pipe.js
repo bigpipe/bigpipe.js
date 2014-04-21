@@ -2549,6 +2549,10 @@ Pagelet.prototype.processor = function processor(packet) {
       this.render(packet.frag.view);
     break;
 
+    case 'redirect':
+      window.location.href = packet.url;
+    break;
+
     default:
     return false;
   }
