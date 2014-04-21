@@ -172,7 +172,7 @@ Pagelet.prototype.listen = function listen() {
         action,
         ~action.indexOf('?') ? '&' : '?',
         '_pagelet=',
-        name
+        pagelet.name
       ].join(''));
     }
 
@@ -209,10 +209,10 @@ Pagelet.prototype.listen = function listen() {
  */
 Pagelet.prototype.submit = function submit(form) {
   var active = document.activeElement
-  , elements = form.elements
-  , data = {}
-  , element
-  , i;
+    , elements = form.elements
+    , data = {}
+    , element
+    , i;
 
   if (active && active.name) {
     data[active.name] = active.value;
@@ -240,7 +240,8 @@ Pagelet.prototype.submit = function submit(form) {
     if (
          !element.name
       || element.name in data
-      || (active && active.name === element.name)) continue;
+      || (active && active.name === element.name)
+    ) continue;
 
     // @TODO handle file uploads
     data[element.name] = element.value;
