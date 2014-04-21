@@ -161,14 +161,15 @@ at the bottom of the server response. So you don't need to manually invoke this.
 
 ```js
 bigpipe.arrive("packages", {
-  "id":"G1M3RAKQK4V7K3XR-SB00M199BR8DUNMI-9EJZKHLWHE5C23XR-LHXF7DD4SHHQ6W29",
+  "id": "G1M3RAKQK4V7K3XR-SB00M199BR8DUNMI-9EJZKHLWHE5C23XR-LHXF7DD4SHHQ6W29",
   "css": ["/4200c15db55f69d6038332b69a9099b3d178242f.css"],
-  "js":["/97bdbe337bf705ff46b4476ed8a5b65b551106dd.js"],
-  "rpc":["autocomplete"],
-  "authorized":true,
-  "remove":false,
-  "processed":1,
-  "data":{}
+  "js": ["/97bdbe337bf705ff46b4476ed8a5b65b551106dd.js"],
+  "rpc": ["autocomplete"],
+  "authorized": true,
+  "streaming": true,
+  "remove": false,
+  "processed": 1,
+  "data": {}
 });
 ```
 
@@ -256,6 +257,8 @@ The following options are accepted:
 - **timeout**: The maximum amount of milliseconds we should wait for all the
   Pagelets resources to be loaded. If it takes longer than this we assume a load
   failure.
+- **streaming**: Should we stream form submits to the server using our real-time
+  connection.
 
 When the pagelet is configured it:
 

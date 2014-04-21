@@ -84,6 +84,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
+  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
 
@@ -166,7 +167,10 @@ Pagelet.prototype.listen = function listen() {
     // simply preventing the default action. If this still does not not work we
     // need to transform the form URLs once the pagelets are loaded.
     //
-    if ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false') {
+    if (
+         ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false')
+      || !pagelet.streaming
+    ) {
       var action = form.getAttribute('action');
       return form.setAttribute('action', [
         action,
