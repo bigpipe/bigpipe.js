@@ -2333,6 +2333,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
+  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
 
@@ -2415,13 +2416,16 @@ Pagelet.prototype.listen = function listen() {
     // simply preventing the default action. If this still does not not work we
     // need to transform the form URLs once the pagelets are loaded.
     //
-    if ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false') {
+    if (
+         ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false')
+      || !pagelet.streaming
+    ) {
       var action = form.getAttribute('action');
       return form.setAttribute('action', [
         action,
         ~action.indexOf('?') ? '&' : '?',
         '_pagelet=',
-        name
+        pagelet.name
       ].join(''));
     }
 
@@ -2458,10 +2462,10 @@ Pagelet.prototype.listen = function listen() {
  */
 Pagelet.prototype.submit = function submit(form) {
   var active = document.activeElement
-  , elements = form.elements
-  , data = {}
-  , element
-  , i;
+    , elements = form.elements
+    , data = {}
+    , element
+    , i;
 
   if (active && active.name) {
     data[active.name] = active.value;
@@ -2489,7 +2493,8 @@ Pagelet.prototype.submit = function submit(form) {
     if (
          !element.name
       || element.name in data
-      || (active && active.name === element.name)) continue;
+      || (active && active.name === element.name)
+    ) continue;
 
     // @TODO handle file uploads
     data[element.name] = element.value;
