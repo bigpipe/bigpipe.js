@@ -2491,13 +2491,13 @@ Pagelet.prototype.submit = function submit(form) {
     // suck. PERIOD.
     //
     if (
-         !element.name
-      || element.name in data
-      || (active && active.name === element.name)
-    ) continue;
-
-    // @TODO handle file uploads
-    data[element.name] = element.value;
+         element.name
+      && !(element.name in data)
+      && element.disabled === false
+      && /^(?:input|select|textarea|keygen)/i.test(element.nodeName)
+      && !/^(?:submit|button|image|reset|file)$/i.test(element.type)
+      && (element.checked || !/^(?:checkbox|radio)$/i.test(element.type))
+    ) data[element.name] = element.value;
   }
 
   //
