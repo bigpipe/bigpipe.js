@@ -23,9 +23,12 @@
   ],
   "dependencies": {
     "eventemitter3": "0.1.x",
-    "fortress": "0.0.x"
+    "fortress": "0.0.x",
+    "parsifal": "0.0.0"
   },
-  "pre-commit": ["compile"],
+  "pre-commit": [
+    "compile"
+  ],
   "devDependencies": {
     "browserify": "3.0.x",
     "mocha": "1.14.x",

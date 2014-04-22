@@ -5,6 +5,7 @@ var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
   , Fortress = require('fortress')
   , async = require('./async')
+  , val = require('parsifal')
   , sandbox;
 
 /**
@@ -248,7 +249,7 @@ Pagelet.prototype.submit = function submit(form) {
       && /^(?:input|select|textarea|keygen)/i.test(element.nodeName)
       && !/^(?:submit|button|image|reset|file)$/i.test(element.type)
       && (element.checked || !/^(?:checkbox|radio)$/i.test(element.type))
-    ) data[element.name] = element.value;
+    ) data[element.name] = val(element);
   }
 
   //
