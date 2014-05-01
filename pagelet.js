@@ -126,8 +126,8 @@ Pagelet.prototype.configure = function configure(name, data) {
   async.each(this.css.concat(this.js), function download(asset, next) {
     this.load(document.body, asset, next);
   }, function done(err) {
-    if (err) return pagelet.emit('error', err);
-    pagelet.emit('loaded');
+    if (err) return pagelet.broadcast('error', err);
+    pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
     pagelet.initialise();
@@ -455,7 +455,7 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.emit('destroy'); // Execute any extra destroy hooks.
+  this.broadcast('destroy'); // Execute any extra destroy hooks.
 
   //
   // Remove all the HTML from the placeholders.
