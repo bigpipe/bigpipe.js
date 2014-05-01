@@ -362,7 +362,7 @@ When invoking this method we return the created object which was sent to the
 server.
 
 ```html
-<form id="foo" action="/foo", method="POST">
+<form id="foo" action="/foo" method="POST">
   <input name="foo" value="bar">
 </form>
 ```
