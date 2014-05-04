@@ -7,8 +7,7 @@
     "build": "npm run-script compile",
     "compile": "browserify index.js -o dist/pipe.js --standalone BigPipe",
     "prepublish": "npm run-script compile",
-    "local": "zuul --local 1337 -- test/pipe.test.js",
-    "watch": "watchify pipe/index.js -o dist/pipe.js --standalone BigPipe -v"
+    "local": "zuul --local 1337 -- test/pipe.test.js"
   },
   "repository": {
     "type": "git",
@@ -34,7 +33,6 @@
     "mocha": "1.14.x",
     "mocha-phantomjs": "3.2.x",
     "pre-commit": "0.0.x",
-    "watchify": "0.5.x",
     "zuul": "1.0.x"
   },
   "author": "Arnout Kazemier",
