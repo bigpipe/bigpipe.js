@@ -1,4 +1,5 @@
-!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.BigPipe=e():"undefined"!=typeof global?global.BigPipe=e():"undefined"!=typeof self&&(self.BigPipe=e())}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.BigPipe=e():"undefined"!=typeof global?global.BigPipe=e():"undefined"!=typeof self&&(self.BigPipe=e())}(function(){var define,module,exports;
+return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection');
@@ -448,7 +449,7 @@ Pipe.prototype.connect = function connect(url, options) {
 //
 module.exports = Pipe;
 
-},{"./collection":2,"./loader":4,"./pagelet":13,"eventemitter3":6}],4:[function(require,module,exports){
+},{"./collection":2,"./loader":4,"./pagelet":12,"eventemitter3":5}],4:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection')
@@ -763,8 +764,6 @@ exports.unload = function unload(url) {
 };
 
 },{"./collection":2}],5:[function(require,module,exports){
-
-},{}],6:[function(require,module,exports){
 'use strict';
 
 /**
@@ -947,7 +946,7 @@ EventEmitter.EventEmitter3 = EventEmitter;
 try { module.exports = EventEmitter; }
 catch (e) {}
 
-},{}],7:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 'use strict';
 
 var Container = require('containerization')
@@ -1272,7 +1271,7 @@ Fortress.stringify = function stringify(code, transfer) {
 //
 module.exports = Fortress;
 
-},{"containerization":8,"eventemitter3":10,"frames":11,"fs":5}],8:[function(require,module,exports){
+},{"containerization":7,"eventemitter3":9,"frames":10,"fs":13}],7:[function(require,module,exports){
 'use strict';
 
 var EventEmitter = require('eventemitter3')
@@ -1721,7 +1720,7 @@ Container.prototype.destroy = function destroy() {
 //
 module.exports = Container;
 
-},{"alcatraz":9,"eventemitter3":10,"frames":11}],9:[function(require,module,exports){
+},{"alcatraz":8,"eventemitter3":9,"frames":10}],8:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1936,7 +1935,7 @@ Alcatraz.prototype.transform = function transform() {
 //
 module.exports = Alcatraz;
 
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2115,7 +2114,7 @@ EventEmitter.EventEmitter3 = EventEmitter;
 try { module.exports = EventEmitter; }
 catch (e) {}
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2246,7 +2245,7 @@ module.exports = function iframe(el, id, options) {
   };
 };
 
-},{}],12:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 /**
  * Cache the hasOwnProperty method.
@@ -2451,7 +2450,7 @@ get.text = text;
 
 module.exports = get;
 
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 /*globals */
 'use strict';
 
@@ -2539,6 +2538,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
+  this.mode = data.mode;                    // Fragment rendering mode.
   this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
@@ -2833,7 +2833,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
 };
 
 /**
- * Render the HTML template in to the placeholders.
+ * Invoke the correct render method for the pagelet.
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
  * @returns {Boolean} Successfully rendered a pagelet.
@@ -2841,35 +2841,84 @@ Pagelet.prototype.$ = function $(attribute, value) {
  */
 Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length || !html) return false;
+  var mode = this.mode in this ? this[this.mode] : this.html;
 
   collection.each(this.placeholders, function each(root) {
-    var fragment = document.createDocumentFragment()
-      , div = document.createElement('div')
-      , borked = this.pipe.IEV < 7;
-
-    //
-    // Clean out old HTML before we append our new HTML or we will get duplicate
-    // DOM. Or there might have been a loading placeholder in place that needs
-    // to be removed.
-    //
-    while (root.firstChild) {
-      root.removeChild(root.firstChild);
-    }
-
-    if (borked) root.appendChild(div);
-
-    div.innerHTML = html;
-
-    while (div.firstChild) {
-      fragment.appendChild(div.firstChild);
-    }
-
-    root.appendChild(fragment);
-    if (borked) root.removeChild(div);
+    mode.call(this, root, html);
   }, this);
 
   this.broadcast('render', html);
   return true;
+};
+
+/**
+ * Render the fragment as HTML (default).
+ *
+ * @param {Element} root Container.
+ * @param {String} content Fragment content.
+ * @api public
+ */
+Pagelet.prototype.html = function html(root, content) {
+  this.createElements(root, content);
+};
+
+/**
+ * Render the fragment as SVG.
+ *
+ * @param {Element} root Container.
+ * @param {String} content Fragment content.
+ * @api public
+ */
+Pagelet.prototype.svg = function svg(root, content) {
+  this.createElements(root, content);
+};
+
+/**
+ * Get the element NameSpace description based on mode.
+ *
+ * @param {String} mode Mode the pagelet will be rendered in.
+ * @return {String} Element namespace.
+ */
+Pagelet.prototype.getElementNS = function getElementNS(mode) {
+  mode = mode.toLowerCase();
+
+  switch(mode) {
+    case 'svg': return 'http://www.w3.org/2000/svg';
+    default: return 'http://www.w3.org/1999/xhtml';
+  }
+};
+
+/**
+ * Create elements by namespace and via a document fragment.
+ *
+ * @param {Element} root Container.
+ * @param {String} content Fragment content.
+ * @api private
+ */
+Pagelet.prototype.createElements = function createElements(root, content) {
+  var fragment = document.createDocumentFragment()
+    , div = document.createElementNS(this.getElementNS(this.mode), 'div')
+    , borked = this.pipe.IEV < 7;
+
+  //
+  // Clean out old HTML before we append our new HTML or we will get duplicate
+  // DOM. Or there might have been a loading placeholder in place that needs
+  // to be removed.
+  //
+  while (root.firstChild) {
+    root.removeChild(root.firstChild);
+  }
+
+  if (borked) root.appendChild(div);
+
+  div.innerHTML = content;
+
+  while (div.firstChild) {
+    fragment.appendChild(div.firstChild);
+  }
+
+  root.appendChild(fragment);
+  if (borked) root.removeChild(div);
 };
 
 /**
@@ -2953,7 +3002,13 @@ Pagelet.prototype.destroy = function destroy(remove) {
 //
 module.exports = Pagelet;
 
-},{"./async":1,"./collection":2,"eventemitter3":6,"fortress":7,"parsifal":12}]},{},[3])
+},{"./async":1,"./collection":2,"eventemitter3":5,"fortress":6,"parsifal":11}],13:[function(require,module,exports){
+
+// not implemented
+// The reason for having an empty file and not throwing is to allow
+// untraditional implementation of this module.
+
+},{}]},{},[3])
 (3)
 });
 ;

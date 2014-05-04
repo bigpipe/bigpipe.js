@@ -85,6 +85,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.run = data.run;                      // Pagelet client code.
   this.rpc = data.rpc;                      // Pagelet RPC methods.
   this.data = data.data;                    // All the template data.
+  this.mode = data.mode;                    // Fragment rendering mode.
   this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
@@ -379,7 +380,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
 };
 
 /**
- * Render the HTML template in to the placeholders.
+ * Invoke the correct render method for the pagelet.
  *
  * @param {String} html The HTML that needs to be added in the placeholders.
  * @returns {Boolean} Successfully rendered a pagelet.
@@ -387,35 +388,84 @@ Pagelet.prototype.$ = function $(attribute, value) {
  */
 Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length || !html) return false;
+  var mode = this.mode in this ? this[this.mode] : this.html;
 
   collection.each(this.placeholders, function each(root) {
-    var fragment = document.createDocumentFragment()
-      , div = document.createElement('div')
-      , borked = this.pipe.IEV < 7;
-
-    //
-    // Clean out old HTML before we append our new HTML or we will get duplicate
-    // DOM. Or there might have been a loading placeholder in place that needs
-    // to be removed.
-    //
-    while (root.firstChild) {
-      root.removeChild(root.firstChild);
-    }
-
-    if (borked) root.appendChild(div);
-
-    div.innerHTML = html;
-
-    while (div.firstChild) {
-      fragment.appendChild(div.firstChild);
-    }
-
-    root.appendChild(fragment);
-    if (borked) root.removeChild(div);
+    mode.call(this, root, html);
   }, this);
 
   this.broadcast('render', html);
   return true;
+};
+
+/**
+ * Render the fragment as HTML (default).
+ *
+ * @param {Element} root Container.
+ * @param {String} content Fragment content.
+ * @api public
+ */
+Pagelet.prototype.html = function html(root, content) {
+  this.createElements(root, content);
+};
+
+/**
+ * Render the fragment as SVG.
+ *
+ * @param {Element} root Container.
+ * @param {String} content Fragment content.
+ * @api public
+ */
+Pagelet.prototype.svg = function svg(root, content) {
+  this.createElements(root, content);
+};
+
+/**
+ * Get the element NameSpace description based on mode.
+ *
+ * @param {String} mode Mode the pagelet will be rendered in.
+ * @return {String} Element namespace.
+ */
+Pagelet.prototype.getElementNS = function getElementNS(mode) {
+  mode = mode.toLowerCase();
+
+  switch(mode) {
+    case 'svg': return 'http://www.w3.org/2000/svg';
+    default: return 'http://www.w3.org/1999/xhtml';
+  }
+};
+
+/**
+ * Create elements by namespace and via a document fragment.
+ *
+ * @param {Element} root Container.
+ * @param {String} content Fragment content.
+ * @api private
+ */
+Pagelet.prototype.createElements = function createElements(root, content) {
+  var fragment = document.createDocumentFragment()
+    , div = document.createElementNS(this.getElementNS(this.mode), 'div')
+    , borked = this.pipe.IEV < 7;
+
+  //
+  // Clean out old HTML before we append our new HTML or we will get duplicate
+  // DOM. Or there might have been a loading placeholder in place that needs
+  // to be removed.
+  //
+  while (root.firstChild) {
+    root.removeChild(root.firstChild);
+  }
+
+  if (borked) root.appendChild(div);
+
+  div.innerHTML = content;
+
+  while (div.firstChild) {
+    fragment.appendChild(div.firstChild);
+  }
+
+  root.appendChild(fragment);
+  if (borked) root.removeChild(div);
 };
 
 /**
