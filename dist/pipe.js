@@ -1,5 +1,4 @@
-!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.BigPipe=e():"undefined"!=typeof global?global.BigPipe=e():"undefined"!=typeof self&&(self.BigPipe=e())}(function(){var define,module,exports;
-return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.BigPipe=e():"undefined"!=typeof global?global.BigPipe=e():"undefined"!=typeof self&&(self.BigPipe=e())}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection');
@@ -449,7 +448,7 @@ Pipe.prototype.connect = function connect(url, options) {
 //
 module.exports = Pipe;
 
-},{"./collection":2,"./loader":4,"./pagelet":12,"eventemitter3":5}],4:[function(require,module,exports){
+},{"./collection":2,"./loader":4,"./pagelet":13,"eventemitter3":6}],4:[function(require,module,exports){
 'use strict';
 
 var collection = require('./collection')
@@ -764,6 +763,8 @@ exports.unload = function unload(url) {
 };
 
 },{"./collection":2}],5:[function(require,module,exports){
+
+},{}],6:[function(require,module,exports){
 'use strict';
 
 /**
@@ -946,7 +947,7 @@ EventEmitter.EventEmitter3 = EventEmitter;
 try { module.exports = EventEmitter; }
 catch (e) {}
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 
 var Container = require('containerization')
@@ -1271,7 +1272,7 @@ Fortress.stringify = function stringify(code, transfer) {
 //
 module.exports = Fortress;
 
-},{"containerization":7,"eventemitter3":9,"frames":10,"fs":13}],7:[function(require,module,exports){
+},{"containerization":8,"eventemitter3":10,"frames":11,"fs":5}],8:[function(require,module,exports){
 'use strict';
 
 var EventEmitter = require('eventemitter3')
@@ -1720,7 +1721,7 @@ Container.prototype.destroy = function destroy() {
 //
 module.exports = Container;
 
-},{"alcatraz":8,"eventemitter3":9,"frames":10}],8:[function(require,module,exports){
+},{"alcatraz":9,"eventemitter3":10,"frames":11}],9:[function(require,module,exports){
 'use strict';
 
 /**
@@ -1935,7 +1936,7 @@ Alcatraz.prototype.transform = function transform() {
 //
 module.exports = Alcatraz;
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2114,7 +2115,7 @@ EventEmitter.EventEmitter3 = EventEmitter;
 try { module.exports = EventEmitter; }
 catch (e) {}
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 
 /**
@@ -2245,7 +2246,7 @@ module.exports = function iframe(el, id, options) {
   };
 };
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 /**
  * Cache the hasOwnProperty method.
@@ -2450,7 +2451,7 @@ get.text = text;
 
 module.exports = get;
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 /*globals */
 'use strict';
 
@@ -3002,13 +3003,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
 //
 module.exports = Pagelet;
 
-},{"./async":1,"./collection":2,"eventemitter3":5,"fortress":6,"parsifal":11}],13:[function(require,module,exports){
-
-// not implemented
-// The reason for having an empty file and not throwing is to allow
-// untraditional implementation of this module.
-
-},{}]},{},[3])
+},{"./async":1,"./collection":2,"eventemitter3":6,"fortress":7,"parsifal":12}]},{},[3])
 (3)
 });
 ;
