@@ -421,7 +421,7 @@ Pagelet.prototype.svg = function svg(root, content) {
 };
 
 /**
- * Get the element NameSpace description based on mode.
+ * Get the element namespaceURI description based on mode.
  *
  * @param {String} mode Mode the pagelet will be rendered in.
  * @return {String} Element namespace.
