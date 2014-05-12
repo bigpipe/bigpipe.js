@@ -64,13 +64,18 @@ Pipe.prototype.configure = function configure(options) {
   var root = this.root
     , className = (root.className || '').split(' ');
 
-  if (~className.indexOf('no_js')) className.splice(className.indexOf('no_js'), 1);
+  if (~className.indexOf('no_js')) {
+    className.splice(className.indexOf('no_js'), 1);
+  }
 
   //
   // Add a loading className so we can style the page accordingly and add all
   // classNames back to the root element.
   //
-  if (!~className.indexOf('pagelets-loading')) className.push('pagelets-loading');
+  if (!~className.indexOf('pagelets-loading')) {
+    className.push('pagelets-loading');
+  }
+
   root.className = className.join(' ');
 
   return this;
@@ -83,7 +88,8 @@ Pipe.prototype.configure = function configure(options) {
  * @type {Number}
  * @private
  */
-Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
+Pipe.prototype.IEV = document.documentMode
+  || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
@@ -267,7 +273,7 @@ Pipe.prototype.connect = function connect(url, options) {
   var primus = this.stream = new Primus(url, options)
     , pipe = this;
 
-  this.orchestrate = primus.substream('pipe::orchestrate');
+  this.orchestrate = primus.substream('pipe:orchestrate');
 
   /**
    * Upgrade the connection with URL information about the current page.

@@ -112,7 +112,7 @@ Pagelet.prototype.configure = function configure(name, data) {
       var args = Array.prototype.slice.call(arguments, 0)
         , id = method +'#'+ (++counter);
 
-      pagelet.once('rpc::'+ id, args.pop());
+      pagelet.once('rpc:'+ id, args.pop());
       pagelet.substream.write({ method: method, type: 'rpc', args: args, id: id });
 
       return pagelet;
@@ -131,7 +131,7 @@ Pagelet.prototype.configure = function configure(name, data) {
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
-    pagelet.initialise();
+    pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
 };
 
@@ -289,7 +289,7 @@ Pagelet.prototype.processor = function processor(packet) {
 
   switch (packet.type) {
     case 'rpc':
-      this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
+      this.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
     break;
 
     case 'event':
@@ -318,8 +318,8 @@ Pagelet.prototype.processor = function processor(packet) {
  *
  * @api private
  */
-Pagelet.prototype.initialise = function initialise() {
-  this.broadcast('initialise');
+Pagelet.prototype.initialize = function initialise() {
+  this.broadcast('initialize');
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -339,7 +339,7 @@ Pagelet.prototype.initialise = function initialise() {
 Pagelet.prototype.broadcast = function broadcast(event) {
   this.emit.apply(this, arguments);
   this.pipe.emit.apply(this.pipe, [
-    this.name +'::'+ event,
+    this.name +':'+ event,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 

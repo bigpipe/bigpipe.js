@@ -101,12 +101,12 @@ Event                 | Receives                   | Description
 `loaded`              |                            | All Pagelets have been loaded.
 `create`              | Pagelet                    | A new Pagelet has been created.
 `remove`              | Pagelet                    | A pagelet has been removed.
-`<name>::error`       | Pagelet, Error             | We've failed to load the Pagelet.
-`<name>::loaded`      | Pagelet                    | All assets have been loaded.
-`<name>::configure`   | Pagelet, Data object       | Pagelet has been configured.
-`<name>::initialise`  | Pagelet                    | Pagelet has been initialised.
-`<name>::render`      | Pagelet, html              | Rendered the HTML.
-`<name>::destroy`     | Pagelet                    | Pagelet has been destroyed.
+`<name>:error`        | Pagelet, Error             | We've failed to load the Pagelet.
+`<name>:loaded`       | Pagelet                    | All assets have been loaded.
+`<name>:configure`    | Pagelet, Data object       | Pagelet has been configured.
+`<name>:initialize`   | Pagelet                    | Pagelet has been initialized.
+`<name>:render`       | Pagelet, html              | Rendered the HTML.
+`<name>:destroy`      | Pagelet                    | Pagelet has been destroyed.
 
 ### BigPipe#arrive
 
@@ -279,7 +279,7 @@ When the pagelet is configured it:
 11. We'll find the HTML that needs to be rendered using the `Pagelet.parse` and
     render it in the placeholders using `Pagelet.render(html)`
 12. The render method emits `render`.
-13. Finally everything is done and emit the `initialise` event.
+13. Finally everything is done and emit the `initialize` event.
 
 Congratulations you've read through the whole configuration process of a
 pagelet. Hopefully this makes everything a bit more clear on how they work.
@@ -294,7 +294,7 @@ Event                 | Receives                   | Description
 `error`               | Error                      | We've failed to load the Pagelet.
 `loaded`              |                            | All assets have been loaded.
 `configure`           | Data object                | Pagelet has been configured.
-`initialise`          |                            | Pagelet has been initialised.
+`initialize`          |                            | Pagelet has been initialized.
 `render`              | html                       | Rendered the HTML.
 `destroy`             |                            | Pagelet is about to be destroyed.
 
@@ -393,9 +393,9 @@ pagelet.broadcast('eventname', [ optional arguments ]);
 
 Broadcast an event to this Pagelet instance as well as the BigPipe instance
 that created the Pagelet. Before emitting the event on the BigPipe instance it
-prefixes the event with the name of the Pagelet and `::`. If the name of your
+prefixes the event with the name of the Pagelet and `:`. If the name of your
 Pagelet is `foo` and you emit event `bar` the BigPipe instance will emit
-`foo::bar` as event.
+`foo:bar` as event.
 
 ```js
 pagelet.broadcast('foo', 'bar');
