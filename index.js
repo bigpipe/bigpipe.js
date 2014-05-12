@@ -62,16 +62,13 @@ Pipe.prototype.constructor = Pipe;
  */
 Pipe.prototype.configure = function configure(options) {
   var root = this.root
-    , className = (root.className || '').split(' ');
-
-  if (~className.indexOf('no_js')) {
-    className.splice(className.indexOf('no_js'), 1);
-  }
+    , className = (root.className || '').replace(/no[_-]js\s?/, '');
 
   //
   // Add a loading className so we can style the page accordingly and add all
   // classNames back to the root element.
   //
+  className = className.length ? className.split(' ') : [];
   if (!~className.indexOf('pagelets-loading')) {
     className.push('pagelets-loading');
   }
