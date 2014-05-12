@@ -32,7 +32,9 @@ function each(collection, iterator, context) {
     }
   } else {
     for (i in collection) {
-      iterator.call(context, collection[i], i);
+      if (collection.hasOwnProperty(i)) {
+        iterator.call(context, collection[i], i);
+      }
     }
   }
 }
