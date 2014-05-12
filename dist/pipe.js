@@ -86,7 +86,9 @@ function each(collection, iterator, context) {
     }
   } else {
     for (i in collection) {
-      iterator.call(context, collection[i], i);
+      if (collection.hasOwnProperty(i)) {
+        iterator.call(context, collection[i], i);
+      }
     }
   }
 }
@@ -214,13 +216,18 @@ Pipe.prototype.configure = function configure(options) {
   var root = this.root
     , className = (root.className || '').split(' ');
 
-  if (~className.indexOf('no_js')) className.splice(className.indexOf('no_js'), 1);
+  if (~className.indexOf('no_js')) {
+    className.splice(className.indexOf('no_js'), 1);
+  }
 
   //
   // Add a loading className so we can style the page accordingly and add all
   // classNames back to the root element.
   //
-  if (!~className.indexOf('pagelets-loading')) className.push('pagelets-loading');
+  if (!~className.indexOf('pagelets-loading')) {
+    className.push('pagelets-loading');
+  }
+
   root.className = className.join(' ');
 
   return this;
@@ -233,7 +240,8 @@ Pipe.prototype.configure = function configure(options) {
  * @type {Number}
  * @private
  */
-Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
+Pipe.prototype.IEV = document.documentMode
+  || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
@@ -417,7 +425,7 @@ Pipe.prototype.connect = function connect(url, options) {
   var primus = this.stream = new Primus(url, options)
     , pipe = this;
 
-  this.orchestrate = primus.substream('pipe::orchestrate');
+  this.orchestrate = primus.substream('pipe:orchestrate');
 
   /**
    * Upgrade the connection with URL information about the current page.
@@ -807,6 +815,8 @@ EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
     , i;
 
   if (1 === length) {
+    if (fn.__EE3_once) this.removeListener(event, fn);
+
     switch (len) {
       case 1:
         fn.call(fn.__EE3_context || this);
@@ -834,16 +844,14 @@ EventEmitter.prototype.emit = function emit(event, a1, a2, a3, a4, a5) {
 
         fn.apply(fn.__EE3_context || this, args);
     }
-
-    if (fn.__EE3_once) this.removeListener(event, fn);
   } else {
     for (i = 1, args = new Array(len -1); i < len; i++) {
       args[i - 1] = arguments[i];
     }
 
     for (i = 0; i < length; fn = listeners[++i]) {
-      fn.apply(fn.__EE3_context || this, args);
       if (fn.__EE3_once) this.removeListener(event, fn);
+      fn.apply(fn.__EE3_context || this, args);
     }
   }
 
@@ -2566,7 +2574,7 @@ Pagelet.prototype.configure = function configure(name, data) {
       var args = Array.prototype.slice.call(arguments, 0)
         , id = method +'#'+ (++counter);
 
-      pagelet.once('rpc::'+ id, args.pop());
+      pagelet.once('rpc:'+ id, args.pop());
       pagelet.substream.write({ method: method, type: 'rpc', args: args, id: id });
 
       return pagelet;
@@ -2585,7 +2593,7 @@ Pagelet.prototype.configure = function configure(name, data) {
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
-    pagelet.initialise();
+    pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
 };
 
@@ -2743,7 +2751,7 @@ Pagelet.prototype.processor = function processor(packet) {
 
   switch (packet.type) {
     case 'rpc':
-      this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
+      this.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
     break;
 
     case 'event':
@@ -2772,8 +2780,8 @@ Pagelet.prototype.processor = function processor(packet) {
  *
  * @api private
  */
-Pagelet.prototype.initialise = function initialise() {
-  this.broadcast('initialise');
+Pagelet.prototype.initialize = function initialise() {
+  this.broadcast('initialize');
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -2793,7 +2801,7 @@ Pagelet.prototype.initialise = function initialise() {
 Pagelet.prototype.broadcast = function broadcast(event) {
   this.emit.apply(this, arguments);
   this.pipe.emit.apply(this.pipe, [
-    this.name +'::'+ event,
+    this.name +':'+ event,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
