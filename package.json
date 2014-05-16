@@ -1,6 +1,6 @@
 {
   "name": "pipe.js",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The client-side library which is used in BigPipe to orchestrate the pagelets.",
   "main": "index.js",
   "scripts": {
