@@ -6,6 +6,7 @@ var EventEmitter = require('eventemitter3')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
+  , undefined
   , sandbox;
 
 /**
@@ -55,7 +56,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.name = name;
 
   //
-  // The pagelet
+  // The pagelet as we've been given the remove flag.
   //
   if (data.remove) {
     return this.destroy(true);
@@ -382,13 +383,36 @@ Pagelet.prototype.$ = function $(attribute, value) {
 /**
  * Invoke the correct render method for the pagelet.
  *
- * @param {String} html The HTML that needs to be added in the placeholders.
+ * @param {String|Object} html The HTML or data that needs to be rendered.
  * @returns {Boolean} Successfully rendered a pagelet.
  * @api public
  */
 Pagelet.prototype.render = function render(html) {
-  if (!this.placeholders.length || !html) return false;
-  var mode = this.mode in this ? this[this.mode] : this.html;
+  if (!this.placeholders.length) return false;
+
+  var mode = this.mode in this ? this[this.mode] : this.html
+    , template = this.template;
+
+  //
+  // We have been given an object instead of pure HTML so we are going to make
+  // the assumption that this is data for the client side template and render
+  // that our selfs. If no HTML is supplied we're going to use the data that has
+  // been send to the client
+  //
+  if (
+       'function' === collection.type(template)
+    && (
+      'object' === collection.type(html)
+      || undefined === html && 'object' === collection.type(this.data)
+    )) {
+    try { html = template(collection.copy(html || {}, this.data || {})); }
+    catch (e) { /* @TODO render the error template */ }
+  }
+
+  //
+  // Failed to get any HTML
+  //
+  if (!html) return false;
 
   collection.each(this.placeholders, function each(root) {
     mode.call(this, root, html);
