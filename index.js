@@ -149,6 +149,19 @@ Pipe.prototype.has = function has(name) {
 };
 
 /**
+ * Get a pagelet that has already been loaded.
+ *
+ * @param {String} name The name of the pagelet.
+ * @returns {Pagelet|undefined} The found pagelet.
+ * @api public
+ */
+Pipe.prototype.get = function get(name) {
+  if (!this.has(name)) return undefined;
+
+  return this.pagelets[name];
+};
+
+/**
  * Remove the pagelet.
  *
  * @param {String} name The name of the pagelet that needs to be removed.
