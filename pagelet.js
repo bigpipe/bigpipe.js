@@ -79,7 +79,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   // Register the pagelet with the BigPipe server as an indication that we've
   // been fully loaded and ready for action.
   //
-  this.orchestrate.write({ type: 'pagelet', name: name });
+  this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
