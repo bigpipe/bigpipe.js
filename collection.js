@@ -1,6 +1,7 @@
 'use strict';
 
-var hasOwn = Object.prototype.hasOwnProperty;
+var hasOwn = Object.prototype.hasOwnProperty
+  , undef;
 
 /**
  * Get an accurate type check for the given Object.
@@ -47,7 +48,7 @@ function each(collection, iterator, context) {
  * @api public
  */
 function empty(obj) {
-  if (!obj) return false;
+  if (undef === obj) return false;
 
   return size(obj) === 0;
 }
