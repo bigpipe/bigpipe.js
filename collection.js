@@ -22,20 +22,16 @@ function type(obj) {
  * @api public
  */
 function each(collection, iterator, context) {
-  if ('function' === typeof collection.forEach) {
-    return collection.forEach(iterator, context);
-  }
-
   var i = 0;
 
   if ('array' === type(collection)) {
     for (; i < collection.length; i++) {
-      iterator.call(context, collection[i], i, collection);
+      iterator.call(context || iterator, collection[i], i, collection);
     }
   } else {
     for (i in collection) {
       if (hasOwn.call(collection, i)) {
-        iterator.call(context, collection[i], i);
+        iterator.call(context || iterator, collection[i], i, collection);
       }
     }
   }
