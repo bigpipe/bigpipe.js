@@ -290,12 +290,12 @@ Pagelet.prototype.processor = function processor(packet) {
 
   switch (packet.type) {
     case 'rpc':
-      this.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
+      EventEmitter.prototype.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
     break;
 
     case 'event':
       if (packet.args && packet.args.length) {
-        this.emit.apply(this, packet.args);
+        EventEmitter.prototype.emit.apply(this, packet.args);
       }
     break;
 
@@ -331,6 +331,20 @@ Pagelet.prototype.initialize = function initialise() {
 };
 
 /**
+ * Emit events on the server side Pagelet instance.
+ *
+ * @param {String} event
+ */
+Pagelet.prototype.emit = function emit(event) {
+  this.substream.write({
+    args: Array.prototype.slice.call(arguments, 0),
+    type: 'emit'
+  });
+
+  return true;
+};
+
+/**
  * Broadcast an event that will be emitted on the pagelet and the page.
  *
  * @param {String} event The name of the event we should emit
@@ -338,7 +352,8 @@ Pagelet.prototype.initialize = function initialise() {
  * @api public
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
-  this.emit.apply(this, arguments);
+  EventEmitter.prototype.emit.apply(this, arguments);
+
   this.pipe.emit.apply(this.pipe, [
     this.name +':'+ event,
     this
@@ -556,9 +571,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Announce the destruction and remove it.
   //
-  if (this.substream) this.substream.end({
-    type: 'end'
-  });
+  if (this.substream) this.substream.end();
 
   //
   // Everything has been cleaned up, release it to our Freelist Pagelet pool.

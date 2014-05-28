@@ -189,7 +189,7 @@ Pipe.prototype.remove = function remove(name) {
 Pipe.prototype.broadcast = function broadcast(event) {
   for (var pagelet in this.pagelets) {
     if (this.pagelets.hasOwnProperty(pagelet)) {
-      this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
     }
   }
 
