@@ -394,6 +394,7 @@ Pagelet.prototype.render = function render(html) {
     mode.call(this, root, html);
   }, this);
 
+  this.pipe.rendered.push(this.name);
   this.broadcast('render', html);
   return true;
 };

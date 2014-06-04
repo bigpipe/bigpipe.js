@@ -40,6 +40,7 @@ function Pipe(server, options) {
   this.assets = {};                       // Asset cache.
   this.root = document.documentElement;   // The <html> element.
   this.expected = +options.pagelets || 0; // Pagelets that this page requires.
+  this.rendered = [];                     // List of already rendered pagelets.
 
   EventEmitter.call(this);
 
@@ -97,7 +98,17 @@ Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.user
 Pipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
-  if (!this.has(name)) this.create(name, data);
+  //
+  // Create child pagelet after parent has finished rendering.
+  //
+  if (!this.has(name)) {
+    if (data.parent && !~this.rendered.indexOf(data.parent)) {
+      this.once(data.parent +'::render', this.create(name, data), this);
+    } else {
+      this.create(name, data)();
+    }
+  }
+
   if (data.processed !== this.expected) return this;
 
   var root = this.root
@@ -122,16 +133,19 @@ Pipe.prototype.arrive = function arrive(name, data) {
  * @api private
  */
 Pipe.prototype.create = function create(name, data) {
-  var pagelet = this.pagelets[name] = this.alloc()
+  var pipe = this
+    , pagelet = pipe.pagelets[name] = pipe.alloc()
     , nr = data.processed || 0;
 
-  pagelet.configure(name, data);
+  return function run() {
+    pagelet.configure(name, data);
 
-  //
-  // A new pagelet has been loaded, emit a progress event.
-  //
-  this.emit('progress', Math.round((nr / this.expected) * 100), nr, pagelet);
-  this.emit('create', pagelet);
+    //
+    // A new pagelet has been loaded, emit a progress event.
+    //
+    pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
+    pipe.emit('create', pagelet);
+  };
 };
 
 /**
