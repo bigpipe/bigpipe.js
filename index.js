@@ -106,7 +106,7 @@ Pipe.prototype.arrive = function arrive(name, data) {
   //
   if (!this.has(name)) {
     if (data.parent && !~this.rendered.indexOf(data.parent)) {
-      this.once(data.parent +'::render', this.create(name, data), this);
+      this.once(data.parent +':render', this.create(name, data), this);
     } else {
       this.create(name, data)();
     }

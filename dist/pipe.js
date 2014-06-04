@@ -54,12 +54,15 @@ exports.each = function each(data, iterator, fn, options) {
 },{"./collection":2}],2:[function(require,module,exports){
 'use strict';
 
+var hasOwn = Object.prototype.hasOwnProperty
+  , undef;
+
 /**
  * Get an accurate type check for the given Object.
  *
  * @param {Mixed} obj The object that needs to be detected.
  * @returns {String} The object type.
- * @api private
+ * @api public
  */
 function type(obj) {
   return Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
@@ -71,23 +74,19 @@ function type(obj) {
  * @param {Mixed} collection The object we want to iterate over.
  * @param {Function} iterator The function that's called for each iteration.
  * @param {Mixed} context The context of the function.
- * @api private
+ * @api public
  */
 function each(collection, iterator, context) {
-  if ('function' === typeof collection.forEach) {
-    return collection.forEach(iterator, context);
-  }
-
   var i = 0;
 
   if ('array' === type(collection)) {
     for (; i < collection.length; i++) {
-      iterator.call(context, collection[i], i, collection);
+      iterator.call(context || iterator, collection[i], i, collection);
     }
   } else {
     for (i in collection) {
-      if (collection.hasOwnProperty(i)) {
-        iterator.call(context, collection[i], i);
+      if (hasOwn.call(collection, i)) {
+        iterator.call(context || iterator, collection[i], i, collection);
       }
     }
   }
@@ -100,10 +99,11 @@ function each(collection, iterator, context) {
  *
  * @param {Mixed} collection The collection that needs to be checked.
  * @returns {Boolean}
- * @api private
+ * @api public
  */
 function empty(obj) {
-  if (!obj) return false;
+  if (undef === obj) return false;
+
   return size(obj) === 0;
 }
 
@@ -112,7 +112,7 @@ function empty(obj) {
  *
  * @param {Mixed} collection The object we want to know the size of.
  * @returns {Number} The size of the collection.
- * @api private
+ * @api public
  */
 function size(collection) {
   var x, i = 0;
@@ -130,14 +130,65 @@ function size(collection) {
  *
  * @param {Mixed} obj The thing we might need to wrap.
  * @returns {Array} We promise!
- * @api private
+ * @api public
  */
 function array(obj) {
   if ('array' === type(obj)) return obj;
 
   return obj  // Only transform objects in to an array when they exist.
-    ? [ obj ]
+    ? [obj]
     : [];
+}
+
+/**
+ * Find the index of an item in the given array.
+ *
+ * @param {Array} arr The array we search in
+ * @param {Mixed} o The object/thing we search for.
+ * @returns {Number} Index of the thing.
+ * @api public
+ */
+function index(arr, o) {
+  for (
+    var j = arr.length,
+        i = i < 0 ? i + j < 0 ? 0 : i + j : i || 0;
+    i < j && arr[i] !== o;
+    i++
+  );
+
+  return j <= i ? -1 : i;
+
+}
+
+/**
+ * Merge two objects.
+ *
+ * @param {Object} one The main object.
+ * @param {Object} two Property overrides.
+ * @param {Number} deep Depth of cloning.
+ * @param {Array} seen Array of props we've seen before.
+ * @returns {Object}
+ * @api public
+ */
+function copy(one, two, deep, lastseen) {
+  var depth = 'number' === type(deep) ? deep : 2
+    , seen = lastseen || []
+    , result = {};
+
+  each([one, two], function each(obj) {
+    for (var prop in obj) {
+      if (hasOwn.call(obj, prop) && index(seen, prop) < 0) {
+        if (typeof obj[prop] !== 'object' || !depth) {
+          result[prop] = obj[prop];
+          seen.push(obj[prop]);
+        } else {
+          copy(result[prop], obj[prop], depth - 1, seen);
+        }
+      }
+    }
+  });
+
+  return result;
 }
 
 //
@@ -145,6 +196,8 @@ function array(obj) {
 //
 exports.array = array;
 exports.empty = empty;
+exports.index = index;
+exports.copy = copy;
 exports.size = size;
 exports.type = type;
 exports.each = each;
@@ -258,7 +311,7 @@ Pipe.prototype.arrive = function arrive(name, data) {
   //
   if (!this.has(name)) {
     if (data.parent && !~this.rendered.indexOf(data.parent)) {
-      this.once(data.parent +'::render', this.create(name, data), this);
+      this.once(data.parent +':render', this.create(name, data), this);
     } else {
       this.create(name, data)();
     }
@@ -315,6 +368,19 @@ Pipe.prototype.has = function has(name) {
 };
 
 /**
+ * Get a pagelet that has already been loaded.
+ *
+ * @param {String} name The name of the pagelet.
+ * @returns {Pagelet|undefined} The found pagelet.
+ * @api public
+ */
+Pipe.prototype.get = function get(name) {
+  if (!this.has(name)) return undefined;
+
+  return this.pagelets[name];
+};
+
+/**
  * Remove the pagelet.
  *
  * @param {String} name The name of the pagelet that needs to be removed.
@@ -342,7 +408,7 @@ Pipe.prototype.remove = function remove(name) {
 Pipe.prototype.broadcast = function broadcast(event) {
   for (var pagelet in this.pagelets) {
     if (this.pagelets.hasOwnProperty(pagelet)) {
-      this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
     }
   }
 
@@ -473,7 +539,7 @@ module.exports = Pipe;
 var collection = require('./collection')
   , styleSheets = []
   , metaQueue = {}
-  , timeout = 5000
+  , timeout = 30000
   , assets = {};
 
 /**
@@ -484,12 +550,13 @@ var collection = require('./collection')
  * @api private
  */
 function loaded() {
-  var meta, url, style;
+  var now = new Date
+    , meta, url, style;
 
   for (url in metaQueue) {
     meta = metaQueue[url];
 
-    if (new Date() - meta.start > timeout) {
+    if (now - meta.start > timeout) {
       meta.fn(new Error('The styleSheet has timed out'));
       delete meta.fn;
     } else {
@@ -507,7 +574,13 @@ function loaded() {
     }
 
     if (!meta.fn) {
-      meta.tag.parentNode.removeChild(meta.tag);
+      if (!meta.deleted) meta.tag.parentNode.removeChild(meta.tag);
+
+      //
+      // The deleted flag is required since loaded can be called parellel by
+      // poll, this will prevent multiple removeChild calls from seperate loops.
+      //
+      meta.deleted = true;
       delete metaQueue[url];
     }
   }
@@ -644,8 +717,7 @@ function loadStyleSheet(root, url, fn) {
     poll(url, root, fn);
 
     //
-    // We don't have a detect.onload, make sure we've started our feature
-    // detection.
+    // Feature detect onload functionality, only run once.
     //
     if (!detect.ran) detect(root);
   }
@@ -2479,6 +2551,7 @@ var EventEmitter = require('eventemitter3')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
+  , undefined
   , sandbox;
 
 /**
@@ -2528,7 +2601,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.name = name;
 
   //
-  // The pagelet
+  // The pagelet as we've been given the remove flag.
   //
   if (data.remove) {
     return this.destroy(true);
@@ -2551,7 +2624,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   // Register the pagelet with the BigPipe server as an indication that we've
   // been fully loaded and ready for action.
   //
-  this.orchestrate.write({ type: 'pagelet', name: name });
+  this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
@@ -2762,12 +2835,12 @@ Pagelet.prototype.processor = function processor(packet) {
 
   switch (packet.type) {
     case 'rpc':
-      this.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
+      EventEmitter.prototype.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
     break;
 
     case 'event':
       if (packet.args && packet.args.length) {
-        this.emit.apply(this, packet.args);
+        EventEmitter.prototype.emit.apply(this, packet.args);
       }
     break;
 
@@ -2803,6 +2876,20 @@ Pagelet.prototype.initialize = function initialise() {
 };
 
 /**
+ * Emit events on the server side Pagelet instance.
+ *
+ * @param {String} event
+ */
+Pagelet.prototype.emit = function emit(event) {
+  this.substream.write({
+    args: Array.prototype.slice.call(arguments, 0),
+    type: 'emit'
+  });
+
+  return true;
+};
+
+/**
  * Broadcast an event that will be emitted on the pagelet and the page.
  *
  * @param {String} event The name of the event we should emit
@@ -2810,7 +2897,8 @@ Pagelet.prototype.initialize = function initialise() {
  * @api public
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
-  this.emit.apply(this, arguments);
+  EventEmitter.prototype.emit.apply(this, arguments);
+
   this.pipe.emit.apply(this.pipe, [
     this.name +':'+ event,
     this
@@ -2855,13 +2943,36 @@ Pagelet.prototype.$ = function $(attribute, value) {
 /**
  * Invoke the correct render method for the pagelet.
  *
- * @param {String} html The HTML that needs to be added in the placeholders.
+ * @param {String|Object} html The HTML or data that needs to be rendered.
  * @returns {Boolean} Successfully rendered a pagelet.
  * @api public
  */
 Pagelet.prototype.render = function render(html) {
-  if (!this.placeholders.length || !html) return false;
-  var mode = this.mode in this ? this[this.mode] : this.html;
+  if (!this.placeholders.length) return false;
+
+  var mode = this.mode in this ? this[this.mode] : this.html
+    , template = this.template;
+
+  //
+  // We have been given an object instead of pure HTML so we are going to make
+  // the assumption that this is data for the client side template and render
+  // that our selfs. If no HTML is supplied we're going to use the data that has
+  // been send to the client
+  //
+  if (
+       'function' === collection.type(template)
+    && (
+      'object' === collection.type(html)
+      || undefined === html && 'object' === collection.type(this.data)
+    )) {
+    try { html = template(collection.copy(html || {}, this.data || {})); }
+    catch (e) { /* @TODO render the error template */ }
+  }
+
+  //
+  // Failed to get any HTML
+  //
+  if (!html) return false;
 
   collection.each(this.placeholders, function each(root) {
     mode.call(this, root, html);
@@ -3006,9 +3117,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Announce the destruction and remove it.
   //
-  if (this.substream) this.substream.end({
-    type: 'end'
-  });
+  if (this.substream) this.substream.end();
 
   //
   // Everything has been cleaned up, release it to our Freelist Pagelet pool.
