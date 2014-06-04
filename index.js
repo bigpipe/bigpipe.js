@@ -63,15 +63,17 @@ Pipe.prototype.constructor = Pipe;
  */
 Pipe.prototype.configure = function configure(options) {
   var root = this.root
-    , className = (root.className || '').split(' ');
-
-  if (~className.indexOf('no_js')) className.splice(className.indexOf('no_js'), 1);
+    , className = (root.className || '').replace(/no[_-]js\s?/, '');
 
   //
   // Add a loading className so we can style the page accordingly and add all
   // classNames back to the root element.
   //
-  if (!~className.indexOf('pagelets-loading')) className.push('pagelets-loading');
+  className = className.length ? className.split(' ') : [];
+  if (!~className.indexOf('pagelets-loading')) {
+    className.push('pagelets-loading');
+  }
+
   root.className = className.join(' ');
 
   return this;
@@ -84,7 +86,8 @@ Pipe.prototype.configure = function configure(options) {
  * @type {Number}
  * @private
  */
-Pipe.prototype.IEV = document.documentMode || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
+Pipe.prototype.IEV = document.documentMode
+  || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
 
 /**
  * A new Pagelet is flushed by the server. We should register it and update the
@@ -160,6 +163,19 @@ Pipe.prototype.has = function has(name) {
 };
 
 /**
+ * Get a pagelet that has already been loaded.
+ *
+ * @param {String} name The name of the pagelet.
+ * @returns {Pagelet|undefined} The found pagelet.
+ * @api public
+ */
+Pipe.prototype.get = function get(name) {
+  if (!this.has(name)) return undefined;
+
+  return this.pagelets[name];
+};
+
+/**
  * Remove the pagelet.
  *
  * @param {String} name The name of the pagelet that needs to be removed.
@@ -187,7 +203,7 @@ Pipe.prototype.remove = function remove(name) {
 Pipe.prototype.broadcast = function broadcast(event) {
   for (var pagelet in this.pagelets) {
     if (this.pagelets.hasOwnProperty(pagelet)) {
-      this.pagelets[pagelet].emit.apply(this.pagelets[pagelet], arguments);
+      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
     }
   }
 
@@ -281,7 +297,7 @@ Pipe.prototype.connect = function connect(url, options) {
   var primus = this.stream = new Primus(url, options)
     , pipe = this;
 
-  this.orchestrate = primus.substream('pipe::orchestrate');
+  this.orchestrate = primus.substream('pipe:orchestrate');
 
   /**
    * Upgrade the connection with URL information about the current page.

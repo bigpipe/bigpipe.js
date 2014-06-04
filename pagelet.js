@@ -6,6 +6,7 @@ var EventEmitter = require('eventemitter3')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
+  , undefined
   , sandbox;
 
 /**
@@ -55,7 +56,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.name = name;
 
   //
-  // The pagelet
+  // The pagelet as we've been given the remove flag.
   //
   if (data.remove) {
     return this.destroy(true);
@@ -78,7 +79,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   // Register the pagelet with the BigPipe server as an indication that we've
   // been fully loaded and ready for action.
   //
-  this.orchestrate.write({ type: 'pagelet', name: name });
+  this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
 
   this.css = collection.array(data.css);    // CSS for the Page.
   this.js = collection.array(data.js);      // Dependencies for the page.
@@ -112,7 +113,7 @@ Pagelet.prototype.configure = function configure(name, data) {
       var args = Array.prototype.slice.call(arguments, 0)
         , id = method +'#'+ (++counter);
 
-      pagelet.once('rpc::'+ id, args.pop());
+      pagelet.once('rpc:'+ id, args.pop());
       pagelet.substream.write({ method: method, type: 'rpc', args: args, id: id });
 
       return pagelet;
@@ -131,7 +132,7 @@ Pagelet.prototype.configure = function configure(name, data) {
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
-    pagelet.initialise();
+    pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
 };
 
@@ -289,12 +290,12 @@ Pagelet.prototype.processor = function processor(packet) {
 
   switch (packet.type) {
     case 'rpc':
-      this.emit.apply(this, ['rpc::'+ packet.id].concat(packet.args || []));
+      EventEmitter.prototype.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
     break;
 
     case 'event':
       if (packet.args && packet.args.length) {
-        this.emit.apply(this, packet.args);
+        EventEmitter.prototype.emit.apply(this, packet.args);
       }
     break;
 
@@ -318,8 +319,8 @@ Pagelet.prototype.processor = function processor(packet) {
  *
  * @api private
  */
-Pagelet.prototype.initialise = function initialise() {
-  this.broadcast('initialise');
+Pagelet.prototype.initialize = function initialise() {
+  this.broadcast('initialize');
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -330,6 +331,20 @@ Pagelet.prototype.initialise = function initialise() {
 };
 
 /**
+ * Emit events on the server side Pagelet instance.
+ *
+ * @param {String} event
+ */
+Pagelet.prototype.emit = function emit(event) {
+  this.substream.write({
+    args: Array.prototype.slice.call(arguments, 0),
+    type: 'emit'
+  });
+
+  return true;
+};
+
+/**
  * Broadcast an event that will be emitted on the pagelet and the page.
  *
  * @param {String} event The name of the event we should emit
@@ -337,9 +352,10 @@ Pagelet.prototype.initialise = function initialise() {
  * @api public
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
-  this.emit.apply(this, arguments);
+  EventEmitter.prototype.emit.apply(this, arguments);
+
   this.pipe.emit.apply(this.pipe, [
-    this.name +'::'+ event,
+    this.name +':'+ event,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
@@ -382,13 +398,36 @@ Pagelet.prototype.$ = function $(attribute, value) {
 /**
  * Invoke the correct render method for the pagelet.
  *
- * @param {String} html The HTML that needs to be added in the placeholders.
+ * @param {String|Object} html The HTML or data that needs to be rendered.
  * @returns {Boolean} Successfully rendered a pagelet.
  * @api public
  */
 Pagelet.prototype.render = function render(html) {
-  if (!this.placeholders.length || !html) return false;
-  var mode = this.mode in this ? this[this.mode] : this.html;
+  if (!this.placeholders.length) return false;
+
+  var mode = this.mode in this ? this[this.mode] : this.html
+    , template = this.template;
+
+  //
+  // We have been given an object instead of pure HTML so we are going to make
+  // the assumption that this is data for the client side template and render
+  // that our selfs. If no HTML is supplied we're going to use the data that has
+  // been send to the client
+  //
+  if (
+       'function' === collection.type(template)
+    && (
+      'object' === collection.type(html)
+      || undefined === html && 'object' === collection.type(this.data)
+    )) {
+    try { html = template(collection.copy(html || {}, this.data || {})); }
+    catch (e) { /* @TODO render the error template */ }
+  }
+
+  //
+  // Failed to get any HTML
+  //
+  if (!html) return false;
 
   collection.each(this.placeholders, function each(root) {
     mode.call(this, root, html);
@@ -533,9 +572,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Announce the destruction and remove it.
   //
-  if (this.substream) this.substream.end({
-    type: 'end'
-  });
+  if (this.substream) this.substream.end();
 
   //
   // Everything has been cleaned up, release it to our Freelist Pagelet pool.
