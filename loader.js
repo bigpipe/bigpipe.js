@@ -3,7 +3,7 @@
 var collection = require('./collection')
   , styleSheets = []
   , metaQueue = {}
-  , timeout = 5000
+  , timeout = 30000
   , assets = {};
 
 /**
@@ -14,12 +14,13 @@ var collection = require('./collection')
  * @api private
  */
 function loaded() {
-  var meta, url, style;
+  var now = new Date
+    , meta, url, style;
 
   for (url in metaQueue) {
     meta = metaQueue[url];
 
-    if (new Date() - meta.start > timeout) {
+    if (now - meta.start > timeout) {
       meta.fn(new Error('The styleSheet has timed out'));
       delete meta.fn;
     } else {
@@ -37,7 +38,13 @@ function loaded() {
     }
 
     if (!meta.fn) {
-      meta.tag.parentNode.removeChild(meta.tag);
+      if (!meta.deleted) meta.tag.parentNode.removeChild(meta.tag);
+
+      //
+      // The deleted flag is required since loaded can be called parellel by
+      // poll, this will prevent multiple removeChild calls from seperate loops.
+      //
+      meta.deleted = true;
       delete metaQueue[url];
     }
   }
@@ -174,8 +181,7 @@ function loadStyleSheet(root, url, fn) {
     poll(url, root, fn);
 
     //
-    // We don't have a detect.onload, make sure we've started our feature
-    // detection.
+    // Feature detect onload functionality, only run once.
     //
     if (!detect.ran) detect(root);
   }
