@@ -35,6 +35,7 @@ function Pipe(server, options) {
   this.options = options;                 // Reference to the used options.
   this.stream = null;                     // Reference to the connected Primus socket.
   this.pagelets = {};                     // Collection of different pagelets.
+  this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.assets = {};                       // Asset cache.

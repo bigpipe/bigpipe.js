@@ -45,7 +45,8 @@ Pagelet.prototype.constructor = Pagelet;
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data) {
-  var pagelet = this;
+  var pipe = this.pipe
+    , pagelet = this;
 
   this.placeholders = this.$('data-pagelet', name);
 
@@ -90,6 +91,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
+  this.template = pipe.templates[data.md5]; // The compiled view.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the

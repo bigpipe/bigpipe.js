@@ -240,6 +240,7 @@ function Pipe(server, options) {
   this.options = options;                 // Reference to the used options.
   this.stream = null;                     // Reference to the connected Primus socket.
   this.pagelets = {};                     // Collection of different pagelets.
+  this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.assets = {};                       // Asset cache.
@@ -2590,7 +2591,8 @@ Pagelet.prototype.constructor = Pagelet;
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data) {
-  var pagelet = this;
+  var pipe = this.pipe
+    , pagelet = this;
 
   this.placeholders = this.$('data-pagelet', name);
 
@@ -2635,6 +2637,7 @@ Pagelet.prototype.configure = function configure(name, data) {
   this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
+  this.template = pipe.templates[data.md5]; // The compiled view.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
