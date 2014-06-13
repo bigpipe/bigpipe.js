@@ -42,13 +42,14 @@ Pagelet.prototype.constructor = Pagelet;
  *
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
+ * @param {HTMLElement} root HTML root element we append to.
  * @api private
  */
-Pagelet.prototype.configure = function configure(name, data) {
+Pagelet.prototype.configure = function configure(name, data, root) {
   var pipe = this.pipe
     , pagelet = this;
 
-  this.placeholders = this.$('data-pagelet', name);
+  this.placeholders = this.$('data-pagelet', name, root);
 
   //
   // Pagelet identification.
@@ -369,13 +370,16 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  *
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
+ * @param {HTMLElement} root Optional root element.
  * @returns {Array} A list of HTML elements that match.
  * @api public
  */
-Pagelet.prototype.$ = function $(attribute, value) {
-  if (document && 'querySelectorAll' in document) {
+Pagelet.prototype.$ = function $(attribute, value, root) {
+  root = root || document;
+
+  if ('querySelectorAll' in root) {
     return Array.prototype.slice.call(
-        document.querySelectorAll('['+ attribute +'="'+ value +'"]')
+        root.querySelectorAll('['+ attribute +'="'+ value +'"]')
       , 0
     );
   }
@@ -383,7 +387,7 @@ Pagelet.prototype.$ = function $(attribute, value) {
   //
   // No querySelectorAll support, so we're going to do a full DOM scan.
   //
-  var all = document.getElementsByTagName('*')
+  var all = root.getElementsByTagName('*')
     , length = all.length
     , results = []
     , i = 0;
@@ -538,8 +542,8 @@ Pagelet.prototype.parse = function parse() {
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
- * @TODO unload CSS
- * @TODO unload JavaScript
+ * @TODO unload CSS.
+ * @TODO unload JavaScript.
  *
  * @param {Boolean} remove Remove the placeholder as well.
  * @api public
