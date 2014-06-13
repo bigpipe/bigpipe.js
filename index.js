@@ -137,9 +137,11 @@ Pipe.prototype.arrive = function arrive(name, data) {
  * @api private
  */
 Pipe.prototype.create = function create(name, data) {
+  data = data || {};
+
   var pipe = this
-    , pagelet = pipe.pagelets[name] = pipe.alloc()
-    , nr = data.processed || 0;
+    , nr = data.processed || 0
+    , pagelet = pipe.pagelets[name] = pipe.alloc();
 
   return function run() {
     pagelet.configure(name, data);

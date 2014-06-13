@@ -49,13 +49,33 @@ Pagelet.prototype.configure = function configure(name, data, root) {
   var pipe = this.pipe
     , pagelet = this;
 
-  this.placeholders = this.$('data-pagelet', name, root);
-
   //
   // Pagelet identification.
   //
-  this.id = data.id;
-  this.name = name;
+  this.id = data.id;                        // ID of the pagelet.
+  this.name = name;                         // Name of the pagelet.
+  this.css = collection.array(data.css);    // CSS for the Page.
+  this.js = collection.array(data.js);      // Dependencies for the page.
+  this.run = data.run;                      // Pagelet client code.
+  this.rpc = data.rpc;                      // Pagelet RPC methods.
+  this.data = data.data;                    // All the template data.
+  this.mode = data.mode;                    // Fragment rendering mode.
+  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
+  this.container = this.sandbox.create();   // Create an application sandbox.
+  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
+  this.hash = data.md5;                     // Hash of the template.
+  this.template = null;                     // Template is set after js loading.
+
+  //
+  // This pagelet was actually part of a parent pagelet, so set a reference to
+  // the parent pagelet that was loaded.
+  //
+  this.parent = data.parent ? pipe.get(data.parent) : undefined;
+
+  //
+  // Locate all the placeholders for this given pagelet.
+  //
+  this.placeholders = this.$('data-pagelet', name, root);
 
   //
   // The pagelet as we've been given the remove flag.
@@ -82,17 +102,6 @@ Pagelet.prototype.configure = function configure(name, data, root) {
   // been fully loaded and ready for action.
   //
   this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
-
-  this.css = collection.array(data.css);    // CSS for the Page.
-  this.js = collection.array(data.js);      // Dependencies for the page.
-  this.run = data.run;                      // Pagelet client code.
-  this.rpc = data.rpc;                      // Pagelet RPC methods.
-  this.data = data.data;                    // All the template data.
-  this.mode = data.mode;                    // Fragment rendering mode.
-  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
-  this.container = this.sandbox.create();   // Create an application sandbox.
-  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
-  this.template = pipe.templates[data.md5]; // The compiled view.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -132,6 +141,8 @@ Pagelet.prototype.configure = function configure(name, data, root) {
     this.load(document.body, asset, next);
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
+
+    pagelet.template = pipe.templates[data.md5];
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
@@ -318,7 +329,7 @@ Pagelet.prototype.processor = function processor(packet) {
 };
 
 /**
- * The pagelet's resource has all been loaded.
+ * The Pagelet's resource has all been loaded.
  *
  * @api private
  */
@@ -357,8 +368,14 @@ Pagelet.prototype.emit = function emit(event) {
 Pagelet.prototype.broadcast = function broadcast(event) {
   EventEmitter.prototype.emit.apply(this, arguments);
 
+  var name = this.name +':'+ event;
+
+  if (this.parent) {
+    name = this.parent.name +':'+ name;
+  }
+
   this.pipe.emit.apply(this.pipe, [
-    this.name +':'+ event,
+    name,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
