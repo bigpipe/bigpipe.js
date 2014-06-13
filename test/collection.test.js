@@ -81,4 +81,27 @@ describe('collection', function () {
       assume(collection.empty(String(''))).to.be.true();
     });
   });
+
+  describe('.index', function () {
+    it('finds a string in an array', function () {
+      assume(collection.index([1, 'bar'], 'bar')).to.equal(1);
+      assume(collection.index([1, 'bar', 'bar'], 'bar')).to.equal(1);
+    });
+
+    it('finds nothing', function () {
+      assume(collection.index([1], 2)).to.equal(-1);
+      assume(collection.index([], 2)).to.equal(-1);
+    });
+  });
+
+  describe('.copy', function () {
+    it('copies the props of 2 objects', function () {
+      var y = collection.copy({
+        foo: 'bar'
+      }, { bar: 'baz' });
+
+      assume(y.foo).to.equal('bar');
+      assume(y.bar).to.equal('baz');
+    });
+  });
 });
