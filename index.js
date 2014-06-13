@@ -102,28 +102,31 @@ Pipe.prototype.IEV = document.documentMode
 Pipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
+  var pipe = this
+    , root = pipe.root
+    , className = (root.className || '').split(' ');
+
   //
   // Create child pagelet after parent has finished rendering.
   //
-  if (!this.has(name)) {
-    if (data.parent && !~this.rendered.indexOf(data.parent)) {
-      this.once(data.parent +':render', this.create(name, data), this);
+  if (!pipe.has(name)) {
+    if (data.parent && !~pipe.rendered.indexOf(data.parent)) {
+      pipe.once(data.parent +':render', function render() {
+        pipe.create(name, data, pipe.get(data.parent).placeholders);
+      });
     } else {
-      this.create(name, data)();
+      pipe.create(name, data);
     }
   }
 
-  if (data.processed !== this.expected) return this;
-
-  var root = this.root
-    , className = (root.className || '').split(' ');
+  if (data.processed !== pipe.expected) return pipe;
 
   if (~className.indexOf('pagelets-loading')) {
     className.splice(className.indexOf('pagelets-loading'), 1);
   }
 
   root.className = className.join(' ');
-  this.emit('loaded');
+  pipe.emit('loaded');
 
   return this;
 };
@@ -133,25 +136,24 @@ Pipe.prototype.arrive = function arrive(name, data) {
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Data for the pagelet.
+ * @param {Array} roots Root elements we can search can search for.
  * @returns {Pipe}
  * @api private
  */
-Pipe.prototype.create = function create(name, data) {
+Pipe.prototype.create = function create(name, data, roots) {
   data = data || {};
 
   var pipe = this
     , nr = data.processed || 0
     , pagelet = pipe.pagelets[name] = pipe.alloc();
 
-  return function run() {
-    pagelet.configure(name, data);
+  pagelet.configure(name, data, roots);
 
-    //
-    // A new pagelet has been loaded, emit a progress event.
-    //
-    pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
-    pipe.emit('create', pagelet);
-  };
+  //
+  // A new pagelet has been loaded, emit a progress event.
+  //
+  pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
+  pipe.emit('create', pagelet);
 };
 
 /**

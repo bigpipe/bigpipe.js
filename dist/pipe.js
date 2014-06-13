@@ -307,28 +307,31 @@ Pipe.prototype.IEV = document.documentMode
 Pipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
+  var pipe = this
+    , root = pipe.root
+    , className = (root.className || '').split(' ');
+
   //
   // Create child pagelet after parent has finished rendering.
   //
-  if (!this.has(name)) {
-    if (data.parent && !~this.rendered.indexOf(data.parent)) {
-      this.once(data.parent +':render', this.create(name, data), this);
+  if (!pipe.has(name)) {
+    if (data.parent && !~pipe.rendered.indexOf(data.parent)) {
+      pipe.once(data.parent +':render', function render() {
+        pipe.create(name, data, pipe.get(data.parent).placeholders);
+      });
     } else {
-      this.create(name, data)();
+      pipe.create(name, data);
     }
   }
 
-  if (data.processed !== this.expected) return this;
-
-  var root = this.root
-    , className = (root.className || '').split(' ');
+  if (data.processed !== pipe.expected) return pipe;
 
   if (~className.indexOf('pagelets-loading')) {
     className.splice(className.indexOf('pagelets-loading'), 1);
   }
 
   root.className = className.join(' ');
-  this.emit('loaded');
+  pipe.emit('loaded');
 
   return this;
 };
@@ -338,25 +341,24 @@ Pipe.prototype.arrive = function arrive(name, data) {
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Data for the pagelet.
+ * @param {Array} roots Root elements we can search can search for.
  * @returns {Pipe}
  * @api private
  */
-Pipe.prototype.create = function create(name, data) {
+Pipe.prototype.create = function create(name, data, roots) {
   data = data || {};
 
   var pipe = this
     , nr = data.processed || 0
     , pagelet = pipe.pagelets[name] = pipe.alloc();
 
-  return function run() {
-    pagelet.configure(name, data);
+  pagelet.configure(name, data, roots);
 
-    //
-    // A new pagelet has been loaded, emit a progress event.
-    //
-    pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
-    pipe.emit('create', pagelet);
-  };
+  //
+  // A new pagelet has been loaded, emit a progress event.
+  //
+  pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
+  pipe.emit('create', pagelet);
 };
 
 /**
@@ -2576,7 +2578,7 @@ function Pagelet(pipe) {
   // code. This sandbox variable should never be exposed to the outside world in
   // order to prevent leaking.
   //
-  this.sandbox = sandbox = sandbox || new Fortress;
+  this.sandbox = sandbox = sandbox || new Fortress();
 }
 
 //
@@ -2590,10 +2592,10 @@ Pagelet.prototype.constructor = Pagelet;
  *
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
- * @param {HTMLElement} root HTML root element we append to.
+ * @param {Array} roots HTML root elements search for targets.
  * @api private
  */
-Pagelet.prototype.configure = function configure(name, data, root) {
+Pagelet.prototype.configure = function configure(name, data, roots) {
   var pipe = this.pipe
     , pagelet = this;
 
@@ -2623,7 +2625,7 @@ Pagelet.prototype.configure = function configure(name, data, root) {
   //
   // Locate all the placeholders for this given pagelet.
   //
-  this.placeholders = this.$('data-pagelet', name, root);
+  this.placeholders = this.$('data-pagelet', name, roots);
 
   //
   // The pagelet as we've been given the remove flag.
@@ -2935,35 +2937,31 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  *
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
- * @param {HTMLElement} root Optional root element.
+ * @param {Array} root Optional array of root elements.
  * @returns {Array} A list of HTML elements that match.
  * @api public
  */
-Pagelet.prototype.$ = function $(attribute, value, root) {
-  root = root || document;
+Pagelet.prototype.$ = function $(attribute, value, roots) {
+  var elements = [];
 
-  if ('querySelectorAll' in root) {
-    return Array.prototype.slice.call(
-        root.querySelectorAll('['+ attribute +'="'+ value +'"]')
-      , 0
+  collection.each(roots || [document], function each(root) {
+    if ('querySelectorAll' in root) return Array.prototype.push.apply(
+      elements,
+      root.querySelectorAll('['+ attribute +'="'+ value +'"]')
     );
-  }
 
-  //
-  // No querySelectorAll support, so we're going to do a full DOM scan.
-  //
-  var all = root.getElementsByTagName('*')
-    , length = all.length
-    , results = []
-    , i = 0;
-
-  for (; i < length; i++) {
-    if (value === all[i].getAttribute(attribute)) {
-      results.push(all[i]);
+    //
+    // No querySelectorAll support, so we're going to do a full DOM scan in
+    // order to search for attributes.
+    //
+    for (var all = root.getElementsByTagName('*'), i = 0, l = all.length; i < l; i++) {
+      if (value === all[i].getAttribute(attribute)) {
+        elements.push(all[i]);
+      }
     }
-  }
+  });
 
-  return results;
+  return elements;
 };
 
 /**
@@ -3116,7 +3114,12 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.broadcast('destroy'); // Execute any extra destroy hooks.
+  //
+  // Execute any extra destroy hooks. This needs to be done before we remove any
+  // elements or destroy anything as there might people subscribed to these
+  // events.
+  //
+  this.broadcast('destroy');
 
   //
   // Remove all the HTML from the placeholders.

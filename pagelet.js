@@ -28,7 +28,7 @@ function Pagelet(pipe) {
   // code. This sandbox variable should never be exposed to the outside world in
   // order to prevent leaking.
   //
-  this.sandbox = sandbox = sandbox || new Fortress;
+  this.sandbox = sandbox = sandbox || new Fortress();
 }
 
 //
@@ -42,10 +42,10 @@ Pagelet.prototype.constructor = Pagelet;
  *
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
- * @param {HTMLElement} root HTML root element we append to.
+ * @param {Array} roots HTML root elements search for targets.
  * @api private
  */
-Pagelet.prototype.configure = function configure(name, data, root) {
+Pagelet.prototype.configure = function configure(name, data, roots) {
   var pipe = this.pipe
     , pagelet = this;
 
@@ -75,7 +75,7 @@ Pagelet.prototype.configure = function configure(name, data, root) {
   //
   // Locate all the placeholders for this given pagelet.
   //
-  this.placeholders = this.$('data-pagelet', name, root);
+  this.placeholders = this.$('data-pagelet', name, roots);
 
   //
   // The pagelet as we've been given the remove flag.
@@ -387,35 +387,31 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  *
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
- * @param {HTMLElement} root Optional root element.
+ * @param {Array} root Optional array of root elements.
  * @returns {Array} A list of HTML elements that match.
  * @api public
  */
-Pagelet.prototype.$ = function $(attribute, value, root) {
-  root = root || document;
+Pagelet.prototype.$ = function $(attribute, value, roots) {
+  var elements = [];
 
-  if ('querySelectorAll' in root) {
-    return Array.prototype.slice.call(
-        root.querySelectorAll('['+ attribute +'="'+ value +'"]')
-      , 0
+  collection.each(roots || [document], function each(root) {
+    if ('querySelectorAll' in root) return Array.prototype.push.apply(
+      elements,
+      root.querySelectorAll('['+ attribute +'="'+ value +'"]')
     );
-  }
 
-  //
-  // No querySelectorAll support, so we're going to do a full DOM scan.
-  //
-  var all = root.getElementsByTagName('*')
-    , length = all.length
-    , results = []
-    , i = 0;
-
-  for (; i < length; i++) {
-    if (value === all[i].getAttribute(attribute)) {
-      results.push(all[i]);
+    //
+    // No querySelectorAll support, so we're going to do a full DOM scan in
+    // order to search for attributes.
+    //
+    for (var all = root.getElementsByTagName('*'), i = 0, l = all.length; i < l; i++) {
+      if (value === all[i].getAttribute(attribute)) {
+        elements.push(all[i]);
+      }
     }
-  }
+  });
 
-  return results;
+  return elements;
 };
 
 /**
@@ -568,7 +564,12 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.broadcast('destroy'); // Execute any extra destroy hooks.
+  //
+  // Execute any extra destroy hooks. This needs to be done before we remove any
+  // elements or destroy anything as there might people subscribed to these
+  // events.
+  //
+  this.broadcast('destroy');
 
   //
   // Remove all the HTML from the placeholders.
