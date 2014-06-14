@@ -3,11 +3,17 @@
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
+  , AsyncAsset = require('async-asset')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
   , undefined
   , sandbox;
+
+//
+// Async Asset loader.
+//
+var assets = new AsyncAsset();
 
 /**
  * Representation of a single pagelet.
@@ -137,8 +143,8 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   this.broadcast('configured', data);
 
-  async.each(this.css.concat(this.js), function download(asset, next) {
-    this.load(document.body, asset, next);
+  async.each(this.css.concat(this.js), function download(url, next) {
+    assets.add(url, next);
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
 

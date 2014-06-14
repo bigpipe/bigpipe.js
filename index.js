@@ -3,8 +3,7 @@
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
-  , Pagelet = require('./pagelet')
-  , loader = require('./loader');
+  , Pagelet = require('./pagelet');
 
 /**
  * Pipe is the client-side library which is automatically added to pages which
@@ -214,26 +213,6 @@ Pipe.prototype.broadcast = function broadcast(event) {
 
   return this;
 };
-
-/**
- * Load a new resource.
- *
- * @param {Element} root The root node where we should insert stuff in.
- * @param {String} url The location of the asset.
- * @param {Function} fn Completion callback.
- * @returns {Loader}
- * @api private
- */
-Pipe.prototype.load = loader.load;
-
-/**
- * Unload a new resource.
- *
- * @param {String} url The location of the asset.
- * @returns {Loader}
- * @api private
- */
-Pipe.prototype.unload = loader.unload;
 
 /**
  * Allocate a new Pagelet instance, retrieve it from our pagelet cache if we
