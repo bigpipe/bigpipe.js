@@ -431,7 +431,7 @@ Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length) return false;
 
   var mode = this.mode in this ? this[this.mode] : this.html
-    , template = this.template || this.pipe.templates[this.hash];
+    , template = this.template;
 
   //
   // We have been given an object instead of pure HTML so we are going to make
