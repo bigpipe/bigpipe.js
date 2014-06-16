@@ -908,7 +908,7 @@ AsyncAsset.prototype.setInterval = function setIntervals(url) {
   this.setInterval.timer = setInterval(function interval() {
     var now = +new Date()
       , url, file, style, meta
-      , compute = window.getComputeStyle;
+      , compute = window.getComputedStyle;
 
     for (url in async.meta) {
       meta = async.meta[url];
@@ -3116,7 +3116,7 @@ Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length) return false;
 
   var mode = this.mode in this ? this[this.mode] : this.html
-    , template = this.template || this.pipe.templates[this.hash];
+    , template = this.template;
 
   //
   // We have been given an object instead of pure HTML so we are going to make
