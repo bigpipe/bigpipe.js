@@ -172,11 +172,24 @@ Pipe.prototype.has = function has(name) {
  * Get a pagelet that has already been loaded.
  *
  * @param {String} name The name of the pagelet.
+ * @param {String} parent Optional name of the parent.
  * @returns {Pagelet|undefined} The found pagelet.
  * @api public
  */
-Pipe.prototype.get = function get(name) {
-  return this.pagelets[name];
+Pipe.prototype.get = function get(name, parent) {
+  var found;
+
+  collection.each(this.pagelets, function each(pagelet) {
+    if (name === pagelet.name) {
+      found = !parent || pagelet.parent && parent === pagelet.parent.name
+        ? pagelet
+        : found;
+    }
+
+    return !found;
+  });
+
+  return found;
 };
 
 /**

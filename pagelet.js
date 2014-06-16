@@ -157,6 +157,16 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
 };
 
 /**
+ * Get a pagelet loaded on the page. If we have
+ *
+ * @param {String} name Name of the pagelet we need.
+ * @returns {Pagelet|Undefined}
+ */
+Pagelet.prototype.pagelet = function pagelet(name) {
+  return this.pipe.get(name, this.name);
+};
+
+/**
  * Intercept form posts and stream them over our substream instead to prevent
  * full page reload.
  *

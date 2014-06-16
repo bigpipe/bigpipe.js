@@ -238,7 +238,7 @@ function Pipe(server, options) {
   this.server = server;                   // The server address we connect to.
   this.options = options;                 // Reference to the used options.
   this.stream = null;                     // Reference to the connected Primus socket.
-  this.pagelets = {};                     // Collection of different pagelets.
+  this.pagelets = [];                     // Collection of different pagelets.
   this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
@@ -254,7 +254,8 @@ function Pipe(server, options) {
 }
 
 //
-// Inherit from EventEmitter3.
+// Inherit from EventEmitter3, use old school inheritance because that's the way
+// we roll. Oh and it works in every browser.
 //
 Pipe.prototype = new EventEmitter();
 Pipe.prototype.constructor = Pipe;
@@ -348,9 +349,10 @@ Pipe.prototype.create = function create(name, data, roots) {
   data = data || {};
 
   var pipe = this
-    , nr = data.processed || 0
-    , pagelet = pipe.pagelets[name] = pipe.alloc();
+    , pagelet = pipe.alloc()
+    , nr = data.processed || 0;
 
+  pipe.pagelets.push(pagelet);
   pagelet.configure(name, data, roots);
 
   //
@@ -368,20 +370,31 @@ Pipe.prototype.create = function create(name, data, roots) {
  * @api public
  */
 Pipe.prototype.has = function has(name) {
-  return name in this.pagelets;
+  return !!this.get(name);
 };
 
 /**
  * Get a pagelet that has already been loaded.
  *
  * @param {String} name The name of the pagelet.
+ * @param {String} parent Optional name of the parent.
  * @returns {Pagelet|undefined} The found pagelet.
  * @api public
  */
-Pipe.prototype.get = function get(name) {
-  if (!this.has(name)) return undefined;
+Pipe.prototype.get = function get(name, parent) {
+  var found;
 
-  return this.pagelets[name];
+  collection.each(this.pagelets, function each(pagelet) {
+    if (name === pagelet.name) {
+      found = !parent || pagelet.parent && parent === pagelet.parent.name
+        ? pagelet
+        : found;
+    }
+
+    return !found;
+  });
+
+  return found;
 };
 
 /**
@@ -392,11 +405,13 @@ Pipe.prototype.get = function get(name) {
  * @api public
  */
 Pipe.prototype.remove = function remove(name) {
-  if (this.has(name)) {
-    this.emit('remove', this.pagelets[name]);
-    this.pagelets[name].destroy();
+  var pagelet = this.get(name)
+    , index = collection.index(this.pagelets, pagelet);
 
-    delete this.pagelets[name];
+  if (~index && pagelet) {
+    this.emit('remove', pagelet);
+    this.pagelets.splice(index, 1);
+    pagelet.destroy();
   }
 
   return this;
@@ -410,11 +425,11 @@ Pipe.prototype.remove = function remove(name) {
  * @api public
  */
 Pipe.prototype.broadcast = function broadcast(event) {
-  for (var pagelet in this.pagelets) {
-    if (this.pagelets.hasOwnProperty(pagelet)) {
-      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
-    }
-  }
+  var args = arguments;
+
+  collection.each(this.pagelets, function each(pagelet) {
+    EventEmitter.prototype.emit.apply(pagelet, args);
+  });
 
   return this;
 };
@@ -694,13 +709,18 @@ AsyncAsset.prototype.progress = function progress(url, fn) {
  * @api private
  */
 AsyncAsset.prototype.callback = function callback(url, err) {
-  var file = this.files[url];
+  var file = this.files[url]
+    , meta = this.meta[url];
 
   if (!file) return;
 
   file.exec(err);
 
   if (err) delete this.files[url];
+  if (meta) {
+    meta.parentNode.removeChild(meta);
+    delete this.meta[url];
+  }
 };
 
 /**
@@ -2839,6 +2859,16 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     pagelet.render(pagelet.parse());
     pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
+};
+
+/**
+ * Get a pagelet loaded on the page. If we have
+ *
+ * @param {String} name Name of the pagelet we need.
+ * @returns {Pagelet|Undefined}
+ */
+Pagelet.prototype.pagelet = function pagelet(name) {
+  return this.pipe.get(name, this.name);
 };
 
 /**
