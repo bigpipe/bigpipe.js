@@ -33,7 +33,7 @@ function Pipe(server, options) {
   this.server = server;                   // The server address we connect to.
   this.options = options;                 // Reference to the used options.
   this.stream = null;                     // Reference to the connected Primus socket.
-  this.pagelets = {};                     // Collection of different pagelets.
+  this.pagelets = [];                     // Collection of different pagelets.
   this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
@@ -49,7 +49,8 @@ function Pipe(server, options) {
 }
 
 //
-// Inherit from EventEmitter3.
+// Inherit from EventEmitter3, use old school inheritance because that's the way
+// we roll. Oh and it works in every browser.
 //
 Pipe.prototype = new EventEmitter();
 Pipe.prototype.constructor = Pipe;
@@ -143,9 +144,10 @@ Pipe.prototype.create = function create(name, data, roots) {
   data = data || {};
 
   var pipe = this
-    , nr = data.processed || 0
-    , pagelet = pipe.pagelets[name] = pipe.alloc();
+    , pagelet = pipe.alloc()
+    , nr = data.processed || 0;
 
+  pipe.pagelets.push(pagelet);
   pagelet.configure(name, data, roots);
 
   //
@@ -163,7 +165,7 @@ Pipe.prototype.create = function create(name, data, roots) {
  * @api public
  */
 Pipe.prototype.has = function has(name) {
-  return name in this.pagelets;
+  return !!this.get(name);
 };
 
 /**
@@ -174,8 +176,6 @@ Pipe.prototype.has = function has(name) {
  * @api public
  */
 Pipe.prototype.get = function get(name) {
-  if (!this.has(name)) return undefined;
-
   return this.pagelets[name];
 };
 
@@ -187,11 +187,13 @@ Pipe.prototype.get = function get(name) {
  * @api public
  */
 Pipe.prototype.remove = function remove(name) {
-  if (this.has(name)) {
-    this.emit('remove', this.pagelets[name]);
-    this.pagelets[name].destroy();
+  var pagelet = this.get(name)
+    , index = collection.index(this.pagelets, pagelet);
 
-    delete this.pagelets[name];
+  if (~index && pagelet) {
+    this.emit('remove', pagelet);
+    this.pagelets.splice(index, 1);
+    pagelet.destroy();
   }
 
   return this;
@@ -205,11 +207,11 @@ Pipe.prototype.remove = function remove(name) {
  * @api public
  */
 Pipe.prototype.broadcast = function broadcast(event) {
-  for (var pagelet in this.pagelets) {
-    if (this.pagelets.hasOwnProperty(pagelet)) {
-      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
-    }
-  }
+  var args = arguments;
+
+  collection.each(this.pagelets, function each(pagelet) {
+    EventEmitter.prototype.emit.apply(pagelet, args);
+  });
 
   return this;
 };
