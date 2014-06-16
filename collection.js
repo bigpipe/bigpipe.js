@@ -123,8 +123,8 @@ function copy(one, two, deep, lastseen) {
 
   each([one, two], function each(obj) {
     for (var prop in obj) {
-      if (hasOwn.call(obj, prop) && index(seen, prop) < 0) {
-        if (typeof obj[prop] !== 'object' || !depth) {
+      if (hasOwn.call(obj, prop) && !~index(seen, obj[prop])) {
+        if (type(obj[prop]) !== 'object' || !depth) {
           result[prop] = obj[prop];
           seen.push(obj[prop]);
         } else {

@@ -3,8 +3,7 @@
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
-  , Pagelet = require('./pagelet')
-  , loader = require('./loader');
+  , Pagelet = require('./pagelet');
 
 /**
  * Pipe is the client-side library which is automatically added to pages which
@@ -34,7 +33,8 @@ function Pipe(server, options) {
   this.server = server;                   // The server address we connect to.
   this.options = options;                 // Reference to the used options.
   this.stream = null;                     // Reference to the connected Primus socket.
-  this.pagelets = {};                     // Collection of different pagelets.
+  this.pagelets = [];                     // Collection of different pagelets.
+  this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.assets = {};                       // Asset cache.
@@ -49,7 +49,8 @@ function Pipe(server, options) {
 }
 
 //
-// Inherit from EventEmitter3.
+// Inherit from EventEmitter3, use old school inheritance because that's the way
+// we roll. Oh and it works in every browser.
 //
 Pipe.prototype = new EventEmitter();
 Pipe.prototype.constructor = Pipe;
@@ -101,28 +102,31 @@ Pipe.prototype.IEV = document.documentMode
 Pipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
+  var pipe = this
+    , root = pipe.root
+    , className = (root.className || '').split(' ');
+
   //
   // Create child pagelet after parent has finished rendering.
   //
-  if (!this.has(name)) {
-    if (data.parent && !~this.rendered.indexOf(data.parent)) {
-      this.once(data.parent +':render', this.create(name, data), this);
+  if (!pipe.has(name)) {
+    if (data.parent && !~pipe.rendered.indexOf(data.parent)) {
+      pipe.once(data.parent +':render', function render() {
+        pipe.create(name, data, pipe.get(data.parent).placeholders);
+      });
     } else {
-      this.create(name, data)();
+      pipe.create(name, data);
     }
   }
 
-  if (data.processed !== this.expected) return this;
-
-  var root = this.root
-    , className = (root.className || '').split(' ');
+  if (data.processed !== pipe.expected) return pipe;
 
   if (~className.indexOf('pagelets-loading')) {
     className.splice(className.indexOf('pagelets-loading'), 1);
   }
 
   root.className = className.join(' ');
-  this.emit('loaded');
+  pipe.emit('loaded');
 
   return this;
 };
@@ -132,23 +136,25 @@ Pipe.prototype.arrive = function arrive(name, data) {
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Data for the pagelet.
+ * @param {Array} roots Root elements we can search can search for.
  * @returns {Pipe}
  * @api private
  */
-Pipe.prototype.create = function create(name, data) {
+Pipe.prototype.create = function create(name, data, roots) {
+  data = data || {};
+
   var pipe = this
-    , pagelet = pipe.pagelets[name] = pipe.alloc()
+    , pagelet = pipe.alloc()
     , nr = data.processed || 0;
 
-  return function run() {
-    pagelet.configure(name, data);
+  pipe.pagelets.push(pagelet);
+  pagelet.configure(name, data, roots);
 
-    //
-    // A new pagelet has been loaded, emit a progress event.
-    //
-    pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
-    pipe.emit('create', pagelet);
-  };
+  //
+  // A new pagelet has been loaded, emit a progress event.
+  //
+  pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
+  pipe.emit('create', pagelet);
 };
 
 /**
@@ -159,20 +165,31 @@ Pipe.prototype.create = function create(name, data) {
  * @api public
  */
 Pipe.prototype.has = function has(name) {
-  return name in this.pagelets;
+  return !!this.get(name);
 };
 
 /**
  * Get a pagelet that has already been loaded.
  *
  * @param {String} name The name of the pagelet.
+ * @param {String} parent Optional name of the parent.
  * @returns {Pagelet|undefined} The found pagelet.
  * @api public
  */
-Pipe.prototype.get = function get(name) {
-  if (!this.has(name)) return undefined;
+Pipe.prototype.get = function get(name, parent) {
+  var found;
 
-  return this.pagelets[name];
+  collection.each(this.pagelets, function each(pagelet) {
+    if (name === pagelet.name) {
+      found = !parent || pagelet.parent && parent === pagelet.parent.name
+        ? pagelet
+        : found;
+    }
+
+    return !found;
+  });
+
+  return found;
 };
 
 /**
@@ -183,11 +200,13 @@ Pipe.prototype.get = function get(name) {
  * @api public
  */
 Pipe.prototype.remove = function remove(name) {
-  if (this.has(name)) {
-    this.emit('remove', this.pagelets[name]);
-    this.pagelets[name].destroy();
+  var pagelet = this.get(name)
+    , index = collection.index(this.pagelets, pagelet);
 
-    delete this.pagelets[name];
+  if (~index && pagelet) {
+    this.emit('remove', pagelet);
+    this.pagelets.splice(index, 1);
+    pagelet.destroy();
   }
 
   return this;
@@ -201,34 +220,14 @@ Pipe.prototype.remove = function remove(name) {
  * @api public
  */
 Pipe.prototype.broadcast = function broadcast(event) {
-  for (var pagelet in this.pagelets) {
-    if (this.pagelets.hasOwnProperty(pagelet)) {
-      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
-    }
-  }
+  var args = arguments;
+
+  collection.each(this.pagelets, function each(pagelet) {
+    EventEmitter.prototype.emit.apply(pagelet, args);
+  });
 
   return this;
 };
-
-/**
- * Load a new resource.
- *
- * @param {Element} root The root node where we should insert stuff in.
- * @param {String} url The location of the asset.
- * @param {Function} fn Completion callback.
- * @returns {Loader}
- * @api private
- */
-Pipe.prototype.load = loader.load;
-
-/**
- * Unload a new resource.
- *
- * @param {String} url The location of the asset.
- * @returns {Loader}
- * @api private
- */
-Pipe.prototype.unload = loader.unload;
 
 /**
  * Allocate a new Pagelet instance, retrieve it from our pagelet cache if we

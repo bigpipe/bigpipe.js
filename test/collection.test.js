@@ -81,4 +81,62 @@ describe('collection', function () {
       assume(collection.empty(String(''))).to.be.true();
     });
   });
+
+  describe('.index', function () {
+    it('finds a string in an array', function () {
+      assume(collection.index([1, 'bar'], 'bar')).to.equal(1);
+      assume(collection.index([1, 'bar', 'bar'], 'bar')).to.equal(1);
+    });
+
+    it('finds nothing', function () {
+      assume(collection.index([1], 2)).to.equal(-1);
+      assume(collection.index([], 2)).to.equal(-1);
+    });
+  });
+
+  describe('.copy', function () {
+    it('copies the props of 2 objects', function () {
+      var y = collection.copy({
+        foo: 'bar'
+      }, { bar: 'baz' });
+
+      assume(y.foo).to.equal('bar');
+      assume(y.bar).to.equal('baz');
+      assume(y).to.have.length(2);
+    });
+
+    it('copies an array correctly', function () {
+      var y = collection.copy({
+        foo: [1, 2]
+      }, { bar: 'baz' });
+
+      assume(y).to.have.length(2);
+      assume(y.foo).to.be.a('array');
+      assume(y.foo).to.deep.equal([1, 2]);
+      assume(y.bar).to.equal('baz');
+    });
+
+    it('allows empty objects', function () {
+      var y = collection.copy({}, {});
+      assume(y).to.have.length(0);
+
+      y = collection.copy({ foo: 'bar' }, {});
+      assume(y.foo).to.equal('bar');
+      assume(y).to.have.length(1);
+
+      y = collection.copy({}, { foo: 'bar' });
+      assume(y.foo).to.equal('bar');
+      assume(y).to.have.length(1);
+    });
+
+    it('does not extend the first given object', function () {
+      var x = { foo: 'bar' }
+        , y = collection.copy(x, { bar: 'baz' });
+
+      assume(x).to.have.length(1);
+      assume(y).to.have.length(2);
+      assume(y.foo).to.equal('bar');
+      assume(y.bar).to.equal('baz');
+    });
+  });
 });

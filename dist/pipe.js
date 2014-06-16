@@ -177,8 +177,8 @@ function copy(one, two, deep, lastseen) {
 
   each([one, two], function each(obj) {
     for (var prop in obj) {
-      if (hasOwn.call(obj, prop) && index(seen, prop) < 0) {
-        if (typeof obj[prop] !== 'object' || !depth) {
+      if (hasOwn.call(obj, prop) && !~index(seen, obj[prop])) {
+        if (type(obj[prop]) !== 'object' || !depth) {
           result[prop] = obj[prop];
           seen.push(obj[prop]);
         } else {
@@ -208,8 +208,7 @@ exports.each = each;
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
-  , Pagelet = require('./pagelet')
-  , loader = require('./loader');
+  , Pagelet = require('./pagelet');
 
 /**
  * Pipe is the client-side library which is automatically added to pages which
@@ -239,7 +238,8 @@ function Pipe(server, options) {
   this.server = server;                   // The server address we connect to.
   this.options = options;                 // Reference to the used options.
   this.stream = null;                     // Reference to the connected Primus socket.
-  this.pagelets = {};                     // Collection of different pagelets.
+  this.pagelets = [];                     // Collection of different pagelets.
+  this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.assets = {};                       // Asset cache.
@@ -254,7 +254,8 @@ function Pipe(server, options) {
 }
 
 //
-// Inherit from EventEmitter3.
+// Inherit from EventEmitter3, use old school inheritance because that's the way
+// we roll. Oh and it works in every browser.
 //
 Pipe.prototype = new EventEmitter();
 Pipe.prototype.constructor = Pipe;
@@ -306,28 +307,31 @@ Pipe.prototype.IEV = document.documentMode
 Pipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
+  var pipe = this
+    , root = pipe.root
+    , className = (root.className || '').split(' ');
+
   //
   // Create child pagelet after parent has finished rendering.
   //
-  if (!this.has(name)) {
-    if (data.parent && !~this.rendered.indexOf(data.parent)) {
-      this.once(data.parent +':render', this.create(name, data), this);
+  if (!pipe.has(name)) {
+    if (data.parent && !~pipe.rendered.indexOf(data.parent)) {
+      pipe.once(data.parent +':render', function render() {
+        pipe.create(name, data, pipe.get(data.parent).placeholders);
+      });
     } else {
-      this.create(name, data)();
+      pipe.create(name, data);
     }
   }
 
-  if (data.processed !== this.expected) return this;
-
-  var root = this.root
-    , className = (root.className || '').split(' ');
+  if (data.processed !== pipe.expected) return pipe;
 
   if (~className.indexOf('pagelets-loading')) {
     className.splice(className.indexOf('pagelets-loading'), 1);
   }
 
   root.className = className.join(' ');
-  this.emit('loaded');
+  pipe.emit('loaded');
 
   return this;
 };
@@ -337,23 +341,25 @@ Pipe.prototype.arrive = function arrive(name, data) {
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Data for the pagelet.
+ * @param {Array} roots Root elements we can search can search for.
  * @returns {Pipe}
  * @api private
  */
-Pipe.prototype.create = function create(name, data) {
+Pipe.prototype.create = function create(name, data, roots) {
+  data = data || {};
+
   var pipe = this
-    , pagelet = pipe.pagelets[name] = pipe.alloc()
+    , pagelet = pipe.alloc()
     , nr = data.processed || 0;
 
-  return function run() {
-    pagelet.configure(name, data);
+  pipe.pagelets.push(pagelet);
+  pagelet.configure(name, data, roots);
 
-    //
-    // A new pagelet has been loaded, emit a progress event.
-    //
-    pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
-    pipe.emit('create', pagelet);
-  };
+  //
+  // A new pagelet has been loaded, emit a progress event.
+  //
+  pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
+  pipe.emit('create', pagelet);
 };
 
 /**
@@ -364,20 +370,31 @@ Pipe.prototype.create = function create(name, data) {
  * @api public
  */
 Pipe.prototype.has = function has(name) {
-  return name in this.pagelets;
+  return !!this.get(name);
 };
 
 /**
  * Get a pagelet that has already been loaded.
  *
  * @param {String} name The name of the pagelet.
+ * @param {String} parent Optional name of the parent.
  * @returns {Pagelet|undefined} The found pagelet.
  * @api public
  */
-Pipe.prototype.get = function get(name) {
-  if (!this.has(name)) return undefined;
+Pipe.prototype.get = function get(name, parent) {
+  var found;
 
-  return this.pagelets[name];
+  collection.each(this.pagelets, function each(pagelet) {
+    if (name === pagelet.name) {
+      found = !parent || pagelet.parent && parent === pagelet.parent.name
+        ? pagelet
+        : found;
+    }
+
+    return !found;
+  });
+
+  return found;
 };
 
 /**
@@ -388,11 +405,13 @@ Pipe.prototype.get = function get(name) {
  * @api public
  */
 Pipe.prototype.remove = function remove(name) {
-  if (this.has(name)) {
-    this.emit('remove', this.pagelets[name]);
-    this.pagelets[name].destroy();
+  var pagelet = this.get(name)
+    , index = collection.index(this.pagelets, pagelet);
 
-    delete this.pagelets[name];
+  if (~index && pagelet) {
+    this.emit('remove', pagelet);
+    this.pagelets.splice(index, 1);
+    pagelet.destroy();
   }
 
   return this;
@@ -406,34 +425,14 @@ Pipe.prototype.remove = function remove(name) {
  * @api public
  */
 Pipe.prototype.broadcast = function broadcast(event) {
-  for (var pagelet in this.pagelets) {
-    if (this.pagelets.hasOwnProperty(pagelet)) {
-      EventEmitter.prototype.emit.apply(this.pagelets[pagelet], arguments);
-    }
-  }
+  var args = arguments;
+
+  collection.each(this.pagelets, function each(pagelet) {
+    EventEmitter.prototype.emit.apply(pagelet, args);
+  });
 
   return this;
 };
-
-/**
- * Load a new resource.
- *
- * @param {Element} root The root node where we should insert stuff in.
- * @param {String} url The location of the asset.
- * @param {Function} fn Completion callback.
- * @returns {Loader}
- * @api private
- */
-Pipe.prototype.load = loader.load;
-
-/**
- * Unload a new resource.
- *
- * @param {String} url The location of the asset.
- * @returns {Loader}
- * @api private
- */
-Pipe.prototype.unload = loader.unload;
 
 /**
  * Allocate a new Pagelet instance, retrieve it from our pagelet cache if we
@@ -533,131 +532,291 @@ Pipe.prototype.connect = function connect(url, options) {
 //
 module.exports = Pipe;
 
-},{"./collection":2,"./loader":4,"./pagelet":13,"eventemitter3":6}],4:[function(require,module,exports){
+},{"./collection":2,"./pagelet":13,"eventemitter3":6}],4:[function(require,module,exports){
 'use strict';
 
-var collection = require('./collection')
-  , styleSheets = []
-  , metaQueue = {}
-  , timeout = 30000
-  , assets = {};
-
 /**
- * Check if all style sheets have been correctly injected by looping over the
- * metaQueue.
+ * Representation of one single file that will be loaded.
  *
- * @returns {Boolean} All style sheets have been loaded.
+ * @constructor
+ * @param {String} url The file URL.
+ * @param {Function} fn Optional callback.
  * @api private
  */
-function loaded() {
-  var now = new Date
-    , meta, url, style;
+function File(url, fn) {
+  if (!(this instanceof File)) return new File(url, fn);
 
-  for (url in metaQueue) {
-    meta = metaQueue[url];
+  this.readyState = File.LOADING;
+  this.start = +new Date();
+  this.callbacks = [];
+  this.cleanup = [];
+  this.url = url;
 
-    if (now - meta.start > timeout) {
-      meta.fn(new Error('The styleSheet has timed out'));
-      delete meta.fn;
-    } else {
-      style = window.getComputedStyle
-        ? getComputedStyle(meta.tag, null)
-        : meta.tag.currentStyle;
+  if ('function' === typeof fn) {
+    this.callbacks.push(fn);
+  }
+}
 
-      //
-      // We assume that the CSS set the height property for the given id selector.
-      //
-      if (style && meta.fn && parseInt(style.height, 10) > 1) {
-        meta.fn();
-        delete meta.fn;
-      }
-    }
+//
+// The different readyStates for our File class.
+//
+File.DEAD     = -1;
+File.LOADING  = 0;
+File.LOADED   = 1;
 
-    if (!meta.fn) {
-      if (!meta.deleted) meta.tag.parentNode.removeChild(meta.tag);
+/**
+ * Added cleanup hook.
+ *
+ * @param {Function} fn Clean up callback
+ * @api public
+ */
+File.prototype.unload = function unload(fn) {
+  this.cleanup.push(fn);
+  return this;
+};
 
-      //
-      // The deleted flag is required since loaded can be called parellel by
-      // poll, this will prevent multiple removeChild calls from seperate loops.
-      //
-      meta.deleted = true;
-      delete metaQueue[url];
-    }
+/**
+ * Execute the callbacks.
+ *
+ * @param {Error} err Optional error.
+ * @api public
+ */
+File.prototype.exec = function exec(err) {
+  this.readyState = File.LOADED;
+
+  if (!this.callbacks.length) return this;
+  for (var i = 0; i < this.callbacks.length; i++) {
+    this.callbacks[i].apply(this.callbacks[i], arguments);
   }
 
-  return collection.empty(metaQueue);
-}
+  this.callbacks.length = 0;
+  if (err) this.destroy();
+
+  return this;
+};
 
 /**
- * Start polling for Style Sheet changes to detect if a Style Sheet has been
- * loaded. This is done by injecting a <meta> tag in to the page with
- * a dedicated `id` attribute that matches a selector that we've added in the
- * server side for example:
+ * Destroy the file.
  *
- * ```css
- * #pagelet_af3f399qu { height: 42px }
- * ```
- *
- * @api private
+ * @api public
  */
-function poll(url, root, fn) {
-  var meta = document.createElement('meta');
-  meta.id = 'pagelet_'+ url.split('/').pop().replace('.css', '').toLowerCase();
-  root.appendChild(meta);
+File.prototype.destroy = function destroy() {
+  this.exec(new Error('Resource has been destroyed before it was loaded'));
 
-  metaQueue[url] = {
-    start: +new Date(),
-    tag: meta,
-    fn: fn
-  };
+  if (this.cleanup.length) for (var i = 0; i < this.cleanup.length; i++) {
+    this.cleanup[i]();
+  }
 
-  //
-  // Do a quick check before trying to poll, it could be that style sheet was
-  // cached and was loaded instantly on the page.
-  //
-  if (loaded()) return;
+  this.readyState = File.DEAD;
+  this.cleanup.length = 0;
 
-  if (!poll.interval) poll.interval = setInterval(function interval() {
-    if (loaded()) clearInterval(poll.interval);
-  }, 20);
-}
+  return this;
+};
 
 /**
- * Try to detect if this browser supports the onload events on the link tag.
- * It's a known cross browser bug that can affect WebKit, FireFox and Opera.
- * Internet Explorer is the only browser that supports the onload event
- * consistency but it has other bigger issues that prevents us from using this
- * method.
+ * Asynchronously load JavaScript and Stylesheets.
  *
- * @param {Element} target
- * @api private
+ * Options:
+ *
+ * - document: Document where elements should be created from.
+ * - prefix: Prefix for the id that we use to poll for stylesheet completion.
+ * - timeout: Load timeout.
+ * - onload: Stylesheet onload supported.
+ *
+ * @constructor
+ * @param {HTMLElement} root The root element we should append to.
+ * @param {Object} options Configuration.
+ * @api public
  */
-function detect(target) {
-  if (detect.ran) return;
-  detect.ran = true;
+function AsyncAsset(root, options) {
+  if (!(this instanceof AsyncAsset)) return new AsyncAsset(root, options);
+  options = options || {};
 
-  var link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'data:text/css;base64,';
+  this.document = 'document' in options ? options.document : document;
+  this.prefix = 'prefix' in options ? options.prefix : 'pagelet_';
+  this.timeout = 'timeout' in options ? options.timeout : 30000;
+  this.onload = 'onload' in options ? options.onload : null;
+  this.root = root || this.document.head || this.document.body;
 
-  link.onload = function loaded() {
-    link.parentNode.removeChild(link);
-    link.onload = false;
-    detect.onload = true;
-  };
+  this.sheets = [];   // List of active stylesheets.
+  this.files = {};    // List of loaded or loading files.
+  this.meta = {};     // List of meta elements for polling.
 
-  target.appendChild(link);
+  if (null === this.onload) {
+    this.feature();
+  }
 }
 
 /**
- * Load a new style sheet.
+ * Remove a asset.
  *
- * @param {String} url The style sheet URL that needs to be loaded.
+ * @param {String} url URL we need to load.
+ * @returns {AsyncAsset}
+ * @api public
+ */
+AsyncAsset.prototype.remove = function remove(url) {
+  if (!(url in this.files)) return this;
+
+  this.files[url].destroy();
+  delete this.files[url];
+};
+
+/**
+ * Load a new asset.
+ *
+ * @param {String} url URL we need to load.
  * @param {Function} fn Completion callback.
+ * @returns {AsyncAsset}
+ * @api public
+ */
+AsyncAsset.prototype.add = function add(url, fn) {
+  if (this.progress(url, fn)) return this;
+  if ('js' === this.type(url)) return this.script(url, fn);
+  if ('css' === this.type(url)) return this.style(url, fn);
+
+  throw new Error('Unsupported file type');
+};
+
+/**
+ * Check if the given URL has already loaded or is currently in progress of
+ * being loaded.
+ *
+ * @param {String} url URL that needs to be loaded.
+ * @returns {Boolean} The loading is already in progress.
  * @api private
  */
-function loadStyleSheet(root, url, fn) {
-  if (url in assets) return fn();
+AsyncAsset.prototype.progress = function progress(url, fn) {
+  if (!(url in this.files)) return false;
+
+  var file = this.files[url];
+
+  if (File.LOADING === file.readyState) {
+    file.callbacks.push(fn);
+  } else if (File.LOADED === file.readyState) {
+    fn();
+  } else if (File.DEAD === file.readyState) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Trigger the callbacks for a given URL.
+ *
+ * @param {String} url URL that has been loaded.
+ * @param {Error} err Optional error argument when shit fails.
+ * @api private
+ */
+AsyncAsset.prototype.callback = function callback(url, err) {
+  var file = this.files[url]
+    , meta = this.meta[url];
+
+  if (!file) return;
+
+  file.exec(err);
+
+  if (err) delete this.files[url];
+  if (meta) {
+    meta.parentNode.removeChild(meta);
+    delete this.meta[url];
+  }
+};
+
+/**
+ * Determine the file type for a given URL.
+ *
+ * @param {String} url File URL.
+ * @returns {String} The extension of the URL.
+ * @api private
+ */
+AsyncAsset.prototype.type = function type(url) {
+  return url.split('.').pop().toLowerCase();
+};
+
+/**
+ * Load a new script with a source.
+ *
+ * @param {String} url The script file that needs to be loaded in to the page.
+ * @param {Function} fn The completion callback.
+ * @returns {AsyncAsset}
+ * @api private
+ */
+AsyncAsset.prototype.script = function scripts(url, fn) {
+  var script = this.document.createElement('script')
+    , file = this.files[url] = new File(url, fn)
+    , async = this;
+
+  //
+  // Add an unload handler which removes the DOM node from the root element.
+  //
+  file.unload(function unload() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    if (script.parentNode) script.parentNode.removeChild(script);
+  });
+
+  //
+  // Required for FireFox 3.6 / Opera async loading. Normally browsers would
+  // load the script async without this flag because we're using createElement
+  // but these browsers need explicit flags.
+  //
+  script.async = true;
+
+  //
+  // onerror is not triggered by all browsers, but should give us a clean
+  // indication of failures so it doesn't matter if you're browser supports it
+  // or not, we still want to listen for it.
+  //
+  script.onerror = function onerror() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    async.callback(url, new Error('Failed to load the script.'));
+  };
+
+  //
+  // All "latest" browser seem to support the onload event for detecting full
+  // script loading. Internet Explorer 11 no longer needs to use the
+  // onreadystatechange method for completion indication.
+  //
+  script.onload = function onload() {
+    script.onerror = script.onload = script.onreadystatechange = null;
+    async.callback(url);
+  };
+
+  //
+  // Fall-back for older IE versions, they do not support the onload event on the
+  // script tag and we need to check the script readyState to see if it's
+  // successfully loaded.
+  //
+  script.onreadystatechange = function onreadystatechange() {
+    if (this.readyState in { loaded: 1, complete: 1 }) {
+      script.onerror = script.onload = script.onreadystatechange = null;
+      async.callback(url);
+    }
+  };
+
+  //
+  // The src needs to be set after the element has been added to the document.
+  // If I remember correctly it had to do something with an IE8 bug.
+  //
+  this.root.appendChild(script);
+  script.src = url;
+
+  return this;
+};
+
+/**
+ * Load CSS files by using @import statements.
+ *
+ * @param {String} url URL to load.
+ * @param {Function} fn Completion callback.
+ * @returns {AsyncAsset}
+ * @api private
+ */
+AsyncAsset.prototype.style = function style(url, fn) {
+  if (!this.document.styleSheet) return this.link(url, fn);
+
+  var file = this.file[url] = new File(url, fn)
+    , sheet, i = 0;
 
   //
   // Internet Explorer can only have 31 style tags on a single page. One single
@@ -669,191 +828,192 @@ function loadStyleSheet(root, url, fn) {
   // @see http://support.microsoft.com/kb/262161
   // @see http://blogs.msdn.com/b/ieinternals/archive/2011/05/14/internet-explorer-stylesheet-rule-selector-import-sheet-limit-maximum.aspx
   //
-  if (document.styleSheet) {
-    for (var sheet, i = 0; i < styleSheets.length; i++) {
-      if (styleSheets[i].imports.length < 31) {
-        sheet = i;
-        break;
-      }
-    }
-
-    //
-    // We didn't find suitable style Sheet to add another @import statement,
-    // create a new one so we can leverage that instead.
-    //
-    // @TODO we should probably check the amount of `document.styleSheets.length`
-    //       to check if we're allowed to add more style sheets.
-    //
-    if (sheet === undefined) {
-      styleSheets.push(document.createStyleSheet());
-      sheet = styleSheets.length - 1;
-    }
-
-    styleSheets[sheet].addImport(url);
-    assets[url] = styleSheets[sheet];
-    return poll(url, root, fn);
-  }
-
-  var link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.type = 'text/css';
-  link.href = url;
-
-  //
-  // Only add the onload/onerror listeners when we've detected that's it's
-  // supported in the browser.
-  //
-  if (detect.onload) {
-    link.onerror = function onerror() {
-      link.onerror = link.onload = null;
-      fn(new Error('Failed to load the stylesheet.'));
-    };
-
-    link.onload = function onload() {
-      link.onerror = link.onload = null;
-      fn();
-    };
-  } else {
-    poll(url, root, fn);
-
-    //
-    // Feature detect onload functionality, only run once.
-    //
-    if (!detect.ran) detect(root);
-  }
-
-  assets[url] = link;
-  root.appendChild(link);
-}
-
-/**
- * Remove a style sheet again.
- *
- * @param {String} url The style sheet URL that needs to be unloaded.
- * @api private
- */
-function unloadStyleSheet(url) {
-  if (!(url in assets)) return;
-
-  var asset = assets[url];
-
-  if (!asset.imports) {
-    asset.onload = asset.onerror = null;
-    asset.parentNode.removeChild(asset);
-  } else {
-    for (var i = 0, length = asset.imports.length; i < length; i++) {
-      if (asset.imports[i].href === url) {
-        asset.removeImport(i);
-        break;
-      }
+  for (; i < this.sheets.length; i++) {
+    if (this.sheets[i].imports.length < 31) {
+      sheet = this.sheets[i];
+      break;
     }
   }
 
-  delete assets[url];
-  delete metaQueue[url];
-}
+  //
+  // We didn't find suitable style Sheet to add another @import statement,
+  // create a new one so we can leverage that instead.
+  //
+  // @TODO we should probably check the amount of `document.styleSheets.length`
+  //       to check if we're allowed to add more style sheets.
+  //
+  if (!sheet) {
+    sheet = this.document.createStyleSheet();
+    this.sheets.push(sheet);
+  }
+
+  //
+  // Remove the import from the stylesheet.
+  //
+  file.unload(function unload() {
+    sheet.removeImport(i);
+  });
+
+  sheet.addImport(url);
+  return this.setInterval(url);
+};
 
 /**
- * Load a new Script.
+ * Load CSS by adding link tags on to the page.
  *
- * @param {String} url The script file that needs to be loaded in to the page.
- * @param {Function} fn The completion callback.
- * @api private
- */
-function loadJavaScript(root, url, fn) {
-  if (url in assets) return fn();
-
-  var script = document.createElement('script');
-  script.async = true; // Required for FireFox 3.6 / Opera async loading.
-
-  //
-  // onerror is not triggered by all browsers, but should give us a clean
-  // indication of failures.
-  //
-  script.onerror = function onerror() {
-    script.onerror = script.onload = script.onreadystatechange = null;
-    fn(new Error('Failed to load the script.'));
-  };
-
-  //
-  // All "latest" browser seem to support the onload event for detecting full
-  // script loading. Internet Explorer 11 no longer needs to use the
-  // onreadystatechange method for completion indication.
-  //
-  script.onload = function onload() {
-    script.onerror = script.onload = script.onreadystatechange = null;
-    fn();
-  };
-
-  //
-  // Fall-back for older IE versions, they do not support the onload event on the
-  // script tag and we need to check the script readyState to see if it's
-  // successfully loaded.
-  //
-  script.onreadystatechange = function onreadystatechange() {
-    if (this.readyState in { loaded: 1, complete: 1 }) {
-      script.onerror = script.onload = script.onreadystatechange = null;
-      fn();
-    }
-  };
-
-  //
-  // The src needs to be set after the element has been added to the document.
-  // If I remember correctly it had to do something with an IE8 bug.
-  //
-  root.appendChild(script);
-  script.src = url;
-
-  assets[url] = script;
-}
-
-/**
- * Remove the loaded script source again.
- *
- * @param {String} url The script URL that needs to be unloaded
- * @api private
- */
-function unloadJavaScript(url) {
-  if (!(url in assets)) return;
-
-  var asset = assets[url];
-  asset.onload = asset.onerror = asset.onreadystatechange = null;
-  asset.parentNode.removeChild(asset);
-
-  delete assets[url];
-}
-
-/**
- * Load a new resource.
- *
- * @param {Element} root The root node where we should insert stuff in.
- * @param {String} url The location of the asset.
+ * @param {String} url URL to load.
  * @param {Function} fn Completion callback.
- * @api public
+ * @returns {AsyncAsset}
+ * @api private
  */
-exports.load = function load(root, url, fn) {
-  if ('js' !== url.split('.').pop()) {
-    return loadStyleSheet(root, url, fn);
+AsyncAsset.prototype.link = function links(url, fn) {
+  var link = this.document.createElement('link')
+    , file = this.files[url] = new File(url, fn)
+    , async = this;
+
+  file.unload(function unload() {
+    link.onload = link.onerror = null;
+    link.parentNode.removeChild(link);
+  });
+
+  if (this.onload) {
+    link.onload = function onload() {
+      link.onload = link.onerror = null;
+      async.callback(url);
+    };
+
+    link.onerror = function onerror() {
+      link.onload = link.onerror = null;
+      async.callback(url, new Error('Failed to load the stylesheet'));
+    };
   }
 
-  loadJavaScript(root, url, fn);
+  link.href = url;
+  link.type = 'text/css';
+  link.rel = 'stylesheet';
+
+  this.root.appendChild(link);
+  return this.setInterval(url);
 };
 
 /**
- * Unload a new resource.
+ * Poll our stylesheets to see if the style's have been applied.
  *
- * @param {String} url The location of the asset.
- * @api public
+ * @param {String} url URL to check
+ * @api private
  */
-exports.unload = function unload(url) {
-  if ('js' !== url.split('.').pop()) {
-    return unloadStyleSheet(url);
-  }
+AsyncAsset.prototype.setInterval = function setIntervals(url) {
+  if (url in this.meta) return this;
 
-  unloadJavaScript(url);
+  //
+  // Create a meta tag which we can inject in to the page and give it the id of
+  // the prefixed CSS rule so we know when the style sheet is loaded based on the
+  // style of this meta element.
+  //
+  var meta = this.meta[url] = this.document.createElement('meta')
+    , async = this;
+
+  meta.id = [
+    this.prefix,
+    url.split('/').pop().split('.').shift()
+  ].join('').toLowerCase();
+
+  this.root.appendChild(meta);
+
+  if (this.setInterval.timer) return this;
+
+  //
+  // Start the reaping process.
+  //
+  this.setInterval.timer = setInterval(function interval() {
+    var now = +new Date()
+      , url, file, style, meta
+      , compute = window.getComputedStyle;
+
+    for (url in async.meta) {
+      meta = async.meta[url];
+      if (!meta) continue;
+
+      file = async.files[url];
+      style = compute ? getComputedStyle(meta) : meta.currentStyle;
+
+      //
+      // We assume that CSS added an increased style to the given prefixed CSS
+      // tag.
+      //
+      if (file && style && parseInt(style.height, 10) > 1) {
+        file.exec();
+      }
+
+      if (
+           !file
+        || file.readyState === File.DEAD
+        || file.readyState === File.LOADED
+        || (now - file.start > async.timeout)
+      ) {
+        if (file) file.exec(new Error('Stylesheet loading has timed out'));
+        meta.parentNode.removeChild(meta);
+        delete async.meta[url];
+      }
+    }
+
+    //
+    // If we can iterate over the async.meta object there are still objects
+    // left that needs to be polled.
+    //
+    for (url in async.meta) return;
+
+    clearInterval(async.setInterval.timer);
+    delete async.setInterval.timer;
+  }, 20);
+
+  return this;
 };
 
-},{"./collection":2}],5:[function(require,module,exports){
+/**
+ * Try to detect if this browser supports the onload events on the link tag.
+ * It's a known cross browser bug that can affect WebKit, FireFox and Opera.
+ * Internet Explorer is the only browser that supports the onload event
+ * consistency but it has other bigger issues that prevents us from using this
+ * method.
+ *
+ * @returns {AsyncAsset}
+ * @api private
+ */
+AsyncAsset.prototype.feature = function detect() {
+  if (this.feature.detecting) return this;
+
+  this.feature.detecting = true;
+
+  var link = document.createElement('link')
+    , async = this;
+
+  link.rel = 'stylesheet';
+  link.href = 'data:text/css;base64,';
+
+  link.onload = function loaded() {
+    link.parentNode.removeChild(link);
+
+    link.onload = false;
+    async.onload = true;
+  };
+
+  this.root.appendChild(link);
+
+  return this;
+};
+
+//
+// Expose the file instance.
+//
+AsyncAsset.File = File;
+
+//
+// Expose the asset loader
+//
+module.exports = AsyncAsset;
+
+},{}],5:[function(require,module,exports){
 
 },{}],6:[function(require,module,exports){
 'use strict';
@@ -2548,11 +2708,17 @@ module.exports = get;
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
+  , AsyncAsset = require('async-asset')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
   , undefined
   , sandbox;
+
+//
+// Async Asset loader.
+//
+var assets = new AsyncAsset();
 
 /**
  * Representation of a single pagelet.
@@ -2573,7 +2739,7 @@ function Pagelet(pipe) {
   // code. This sandbox variable should never be exposed to the outside world in
   // order to prevent leaking.
   //
-  this.sandbox = sandbox = sandbox || new Fortress;
+  this.sandbox = sandbox = sandbox || new Fortress();
 }
 
 //
@@ -2587,18 +2753,40 @@ Pagelet.prototype.constructor = Pagelet;
  *
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
+ * @param {Array} roots HTML root elements search for targets.
  * @api private
  */
-Pagelet.prototype.configure = function configure(name, data) {
-  var pagelet = this;
-
-  this.placeholders = this.$('data-pagelet', name);
+Pagelet.prototype.configure = function configure(name, data, roots) {
+  var pipe = this.pipe
+    , pagelet = this;
 
   //
   // Pagelet identification.
   //
-  this.id = data.id;
-  this.name = name;
+  this.id = data.id;                        // ID of the pagelet.
+  this.name = name;                         // Name of the pagelet.
+  this.css = collection.array(data.css);    // CSS for the Page.
+  this.js = collection.array(data.js);      // Dependencies for the page.
+  this.run = data.run;                      // Pagelet client code.
+  this.rpc = data.rpc;                      // Pagelet RPC methods.
+  this.data = data.data;                    // All the template data.
+  this.mode = data.mode;                    // Fragment rendering mode.
+  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
+  this.container = this.sandbox.create();   // Create an application sandbox.
+  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
+  this.hash = data.md5;                     // Hash of the template.
+  this.template = null;                     // Template is set after js loading.
+
+  //
+  // This pagelet was actually part of a parent pagelet, so set a reference to
+  // the parent pagelet that was loaded.
+  //
+  this.parent = data.parent ? pipe.get(data.parent) : undefined;
+
+  //
+  // Locate all the placeholders for this given pagelet.
+  //
+  this.placeholders = this.$('data-pagelet', name, roots);
 
   //
   // The pagelet as we've been given the remove flag.
@@ -2625,16 +2813,6 @@ Pagelet.prototype.configure = function configure(name, data) {
   // been fully loaded and ready for action.
   //
   this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
-
-  this.css = collection.array(data.css);    // CSS for the Page.
-  this.js = collection.array(data.js);      // Dependencies for the page.
-  this.run = data.run;                      // Pagelet client code.
-  this.rpc = data.rpc;                      // Pagelet RPC methods.
-  this.data = data.data;                    // All the template data.
-  this.mode = data.mode;                    // Fragment rendering mode.
-  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
-  this.container = this.sandbox.create();   // Create an application sandbox.
-  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -2670,15 +2848,27 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   this.broadcast('configured', data);
 
-  async.each(this.css.concat(this.js), function download(asset, next) {
-    this.load(document.body, asset, next);
+  async.each(this.css.concat(this.js), function download(url, next) {
+    assets.add(url, next);
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
+
+    pagelet.template = pipe.templates[data.md5];
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
     pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
+};
+
+/**
+ * Get a pagelet loaded on the page. If we have
+ *
+ * @param {String} name Name of the pagelet we need.
+ * @returns {Pagelet|Undefined}
+ */
+Pagelet.prototype.pagelet = function pagelet(name) {
+  return this.pipe.get(name, this.name);
 };
 
 /**
@@ -2860,7 +3050,7 @@ Pagelet.prototype.processor = function processor(packet) {
 };
 
 /**
- * The pagelet's resource has all been loaded.
+ * The Pagelet's resource has all been loaded.
  *
  * @api private
  */
@@ -2899,8 +3089,14 @@ Pagelet.prototype.emit = function emit(event) {
 Pagelet.prototype.broadcast = function broadcast(event) {
   EventEmitter.prototype.emit.apply(this, arguments);
 
+  var name = this.name +':'+ event;
+
+  if (this.parent) {
+    name = this.parent.name +':'+ name;
+  }
+
   this.pipe.emit.apply(this.pipe, [
-    this.name +':'+ event,
+    name,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
@@ -2912,32 +3108,31 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  *
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
+ * @param {Array} root Optional array of root elements.
  * @returns {Array} A list of HTML elements that match.
  * @api public
  */
-Pagelet.prototype.$ = function $(attribute, value) {
-  if (document && 'querySelectorAll' in document) {
-    return Array.prototype.slice.call(
-        document.querySelectorAll('['+ attribute +'="'+ value +'"]')
-      , 0
+Pagelet.prototype.$ = function $(attribute, value, roots) {
+  var elements = [];
+
+  collection.each(roots || [document], function each(root) {
+    if ('querySelectorAll' in root) return Array.prototype.push.apply(
+      elements,
+      root.querySelectorAll('['+ attribute +'="'+ value +'"]')
     );
-  }
 
-  //
-  // No querySelectorAll support, so we're going to do a full DOM scan.
-  //
-  var all = document.getElementsByTagName('*')
-    , length = all.length
-    , results = []
-    , i = 0;
-
-  for (; i < length; i++) {
-    if (value === all[i].getAttribute(attribute)) {
-      results.push(all[i]);
+    //
+    // No querySelectorAll support, so we're going to do a full DOM scan in
+    // order to search for attributes.
+    //
+    for (var all = root.getElementsByTagName('*'), i = 0, l = all.length; i < l; i++) {
+      if (value === all[i].getAttribute(attribute)) {
+        elements.push(all[i]);
+      }
     }
-  }
+  });
 
-  return results;
+  return elements;
 };
 
 /**
@@ -3081,8 +3276,8 @@ Pagelet.prototype.parse = function parse() {
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
- * @TODO unload CSS
- * @TODO unload JavaScript
+ * @TODO unload CSS.
+ * @TODO unload JavaScript.
  *
  * @param {Boolean} remove Remove the placeholder as well.
  * @api public
@@ -3090,7 +3285,12 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.broadcast('destroy'); // Execute any extra destroy hooks.
+  //
+  // Execute any extra destroy hooks. This needs to be done before we remove any
+  // elements or destroy anything as there might people subscribed to these
+  // events.
+  //
+  this.broadcast('destroy');
 
   //
   // Remove all the HTML from the placeholders.
@@ -3132,7 +3332,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
 //
 module.exports = Pagelet;
 
-},{"./async":1,"./collection":2,"eventemitter3":6,"fortress":7,"parsifal":12}]},{},[3])
+},{"./async":1,"./collection":2,"async-asset":4,"eventemitter3":6,"fortress":7,"parsifal":12}]},{},[3])
 (3)
 });
 ;

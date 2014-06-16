@@ -3,11 +3,17 @@
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
+  , AsyncAsset = require('async-asset')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
   , undefined
   , sandbox;
+
+//
+// Async Asset loader.
+//
+var assets = new AsyncAsset();
 
 /**
  * Representation of a single pagelet.
@@ -28,7 +34,7 @@ function Pagelet(pipe) {
   // code. This sandbox variable should never be exposed to the outside world in
   // order to prevent leaking.
   //
-  this.sandbox = sandbox = sandbox || new Fortress;
+  this.sandbox = sandbox = sandbox || new Fortress();
 }
 
 //
@@ -42,18 +48,40 @@ Pagelet.prototype.constructor = Pagelet;
  *
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
+ * @param {Array} roots HTML root elements search for targets.
  * @api private
  */
-Pagelet.prototype.configure = function configure(name, data) {
-  var pagelet = this;
-
-  this.placeholders = this.$('data-pagelet', name);
+Pagelet.prototype.configure = function configure(name, data, roots) {
+  var pipe = this.pipe
+    , pagelet = this;
 
   //
   // Pagelet identification.
   //
-  this.id = data.id;
-  this.name = name;
+  this.id = data.id;                        // ID of the pagelet.
+  this.name = name;                         // Name of the pagelet.
+  this.css = collection.array(data.css);    // CSS for the Page.
+  this.js = collection.array(data.js);      // Dependencies for the page.
+  this.run = data.run;                      // Pagelet client code.
+  this.rpc = data.rpc;                      // Pagelet RPC methods.
+  this.data = data.data;                    // All the template data.
+  this.mode = data.mode;                    // Fragment rendering mode.
+  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
+  this.container = this.sandbox.create();   // Create an application sandbox.
+  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
+  this.hash = data.md5;                     // Hash of the template.
+  this.template = null;                     // Template is set after js loading.
+
+  //
+  // This pagelet was actually part of a parent pagelet, so set a reference to
+  // the parent pagelet that was loaded.
+  //
+  this.parent = data.parent ? pipe.get(data.parent) : undefined;
+
+  //
+  // Locate all the placeholders for this given pagelet.
+  //
+  this.placeholders = this.$('data-pagelet', name, roots);
 
   //
   // The pagelet as we've been given the remove flag.
@@ -80,16 +108,6 @@ Pagelet.prototype.configure = function configure(name, data) {
   // been fully loaded and ready for action.
   //
   this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
-
-  this.css = collection.array(data.css);    // CSS for the Page.
-  this.js = collection.array(data.js);      // Dependencies for the page.
-  this.run = data.run;                      // Pagelet client code.
-  this.rpc = data.rpc;                      // Pagelet RPC methods.
-  this.data = data.data;                    // All the template data.
-  this.mode = data.mode;                    // Fragment rendering mode.
-  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
-  this.container = this.sandbox.create();   // Create an application sandbox.
-  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -125,15 +143,27 @@ Pagelet.prototype.configure = function configure(name, data) {
   //
   this.broadcast('configured', data);
 
-  async.each(this.css.concat(this.js), function download(asset, next) {
-    this.load(document.body, asset, next);
+  async.each(this.css.concat(this.js), function download(url, next) {
+    assets.add(url, next);
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
+
+    pagelet.template = pipe.templates[data.md5];
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
     pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
+};
+
+/**
+ * Get a pagelet loaded on the page. If we have
+ *
+ * @param {String} name Name of the pagelet we need.
+ * @returns {Pagelet|Undefined}
+ */
+Pagelet.prototype.pagelet = function pagelet(name) {
+  return this.pipe.get(name, this.name);
 };
 
 /**
@@ -315,7 +345,7 @@ Pagelet.prototype.processor = function processor(packet) {
 };
 
 /**
- * The pagelet's resource has all been loaded.
+ * The Pagelet's resource has all been loaded.
  *
  * @api private
  */
@@ -354,8 +384,14 @@ Pagelet.prototype.emit = function emit(event) {
 Pagelet.prototype.broadcast = function broadcast(event) {
   EventEmitter.prototype.emit.apply(this, arguments);
 
+  var name = this.name +':'+ event;
+
+  if (this.parent) {
+    name = this.parent.name +':'+ name;
+  }
+
   this.pipe.emit.apply(this.pipe, [
-    this.name +':'+ event,
+    name,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
@@ -367,32 +403,31 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  *
  * @param {String} attribute The name of the attribute we're searching.
  * @param {String} value The value that the attribute should equal to.
+ * @param {Array} root Optional array of root elements.
  * @returns {Array} A list of HTML elements that match.
  * @api public
  */
-Pagelet.prototype.$ = function $(attribute, value) {
-  if (document && 'querySelectorAll' in document) {
-    return Array.prototype.slice.call(
-        document.querySelectorAll('['+ attribute +'="'+ value +'"]')
-      , 0
+Pagelet.prototype.$ = function $(attribute, value, roots) {
+  var elements = [];
+
+  collection.each(roots || [document], function each(root) {
+    if ('querySelectorAll' in root) return Array.prototype.push.apply(
+      elements,
+      root.querySelectorAll('['+ attribute +'="'+ value +'"]')
     );
-  }
 
-  //
-  // No querySelectorAll support, so we're going to do a full DOM scan.
-  //
-  var all = document.getElementsByTagName('*')
-    , length = all.length
-    , results = []
-    , i = 0;
-
-  for (; i < length; i++) {
-    if (value === all[i].getAttribute(attribute)) {
-      results.push(all[i]);
+    //
+    // No querySelectorAll support, so we're going to do a full DOM scan in
+    // order to search for attributes.
+    //
+    for (var all = root.getElementsByTagName('*'), i = 0, l = all.length; i < l; i++) {
+      if (value === all[i].getAttribute(attribute)) {
+        elements.push(all[i]);
+      }
     }
-  }
+  });
 
-  return results;
+  return elements;
 };
 
 /**
@@ -536,8 +571,8 @@ Pagelet.prototype.parse = function parse() {
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
- * @TODO unload CSS
- * @TODO unload JavaScript
+ * @TODO unload CSS.
+ * @TODO unload JavaScript.
  *
  * @param {Boolean} remove Remove the placeholder as well.
  * @api public
@@ -545,7 +580,12 @@ Pagelet.prototype.parse = function parse() {
 Pagelet.prototype.destroy = function destroy(remove) {
   var pagelet = this;
 
-  this.broadcast('destroy'); // Execute any extra destroy hooks.
+  //
+  // Execute any extra destroy hooks. This needs to be done before we remove any
+  // elements or destroy anything as there might people subscribed to these
+  // events.
+  //
+  this.broadcast('destroy');
 
   //
   // Remove all the HTML from the placeholders.
