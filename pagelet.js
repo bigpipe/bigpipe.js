@@ -345,12 +345,19 @@ Pagelet.prototype.processor = function processor(packet) {
       this.render(packet.frag.view);
     break;
 
+    case 'err':
+      var err = new Error(packet.err.message || 'RPC error');
+
+      if (packet.err.stack) err.stack = packet.err.stack;
+      this.render(err);
+    break;
+
     case 'redirect':
       window.location.href = packet.url;
     break;
 
     default:
-    return false;
+      return false;
   }
 
   return true;
