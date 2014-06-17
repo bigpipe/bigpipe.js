@@ -30,17 +30,17 @@ function Pipe(server, options) {
 
   options = options || {};
 
-  this.server = server;                   // The server address we connect to.
+  this.expected = +options.pagelets || 0; // Pagelets that this page requires.
+  this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.options = options;                 // Reference to the used options.
+  this.server = server;                   // The server address we connect to.
+  this.templates = {};                    // Collection of templates.
   this.stream = null;                     // Reference to the connected Primus socket.
   this.pagelets = [];                     // Collection of different pagelets.
-  this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
-  this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
+  this.rendered = [];                     // List of already rendered pagelets.
   this.assets = {};                       // Asset cache.
   this.root = document.documentElement;   // The <html> element.
-  this.expected = +options.pagelets || 0; // Pagelets that this page requires.
-  this.rendered = [];                     // List of already rendered pagelets.
 
   EventEmitter.call(this);
 

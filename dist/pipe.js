@@ -1,7 +1,7 @@
-!function(e){"object"==typeof exports?module.exports=e():"function"==typeof define&&define.amd?define(e):"undefined"!=typeof window?window.BigPipe=e():"undefined"!=typeof global?global.BigPipe=e():"undefined"!=typeof self&&(self.BigPipe=e())}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.BigPipe=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 'use strict';
 
-var collection = require('./collection');
+var collection = _dereq_('./collection');
 
 //
 // Pointless function that will replace callbacks once they are executed to
@@ -51,7 +51,7 @@ exports.each = function each(data, iterator, fn, options) {
   }, options.timeout);
 };
 
-},{"./collection":2}],2:[function(require,module,exports){
+},{"./collection":2}],2:[function(_dereq_,module,exports){
 'use strict';
 
 var hasOwn = Object.prototype.hasOwnProperty
@@ -202,13 +202,13 @@ exports.size = size;
 exports.type = type;
 exports.each = each;
 
-},{}],3:[function(require,module,exports){
+},{}],3:[function(_dereq_,module,exports){
 /*globals Primus */
 'use strict';
 
-var EventEmitter = require('eventemitter3')
-  , collection = require('./collection')
-  , Pagelet = require('./pagelet');
+var EventEmitter = _dereq_('eventemitter3')
+  , collection = _dereq_('./collection')
+  , Pagelet = _dereq_('./pagelet');
 
 /**
  * Pipe is the client-side library which is automatically added to pages which
@@ -235,17 +235,17 @@ function Pipe(server, options) {
 
   options = options || {};
 
-  this.server = server;                   // The server address we connect to.
+  this.expected = +options.pagelets || 0; // Pagelets that this page requires.
+  this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.options = options;                 // Reference to the used options.
+  this.server = server;                   // The server address we connect to.
+  this.templates = {};                    // Collection of templates.
   this.stream = null;                     // Reference to the connected Primus socket.
   this.pagelets = [];                     // Collection of different pagelets.
-  this.templates = {};                    // Collection of templates.
   this.freelist = [];                     // Collection of unused Pagelet instances.
-  this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
+  this.rendered = [];                     // List of already rendered pagelets.
   this.assets = {};                       // Asset cache.
   this.root = document.documentElement;   // The <html> element.
-  this.expected = +options.pagelets || 0; // Pagelets that this page requires.
-  this.rendered = [];                     // List of already rendered pagelets.
 
   EventEmitter.call(this);
 
@@ -532,7 +532,7 @@ Pipe.prototype.connect = function connect(url, options) {
 //
 module.exports = Pipe;
 
-},{"./collection":2,"./pagelet":13,"eventemitter3":6}],4:[function(require,module,exports){
+},{"./collection":2,"./pagelet":13,"eventemitter3":6}],4:[function(_dereq_,module,exports){
 'use strict';
 
 /**
@@ -1013,9 +1013,9 @@ AsyncAsset.File = File;
 //
 module.exports = AsyncAsset;
 
-},{}],5:[function(require,module,exports){
+},{}],5:[function(_dereq_,module,exports){
 
-},{}],6:[function(require,module,exports){
+},{}],6:[function(_dereq_,module,exports){
 'use strict';
 
 /**
@@ -1198,12 +1198,12 @@ EventEmitter.EventEmitter3 = EventEmitter;
 try { module.exports = EventEmitter; }
 catch (e) {}
 
-},{}],7:[function(require,module,exports){
+},{}],7:[function(_dereq_,module,exports){
 'use strict';
 
-var Container = require('containerization')
-  , EventEmitter = require('eventemitter3')
-  , iframe = require('frames');
+var Container = _dereq_('containerization')
+  , EventEmitter = _dereq_('eventemitter3')
+  , iframe = _dereq_('frames');
 
 /**
  * Fortress: Container and Image management for front-end code.
@@ -1512,7 +1512,7 @@ Fortress.stringify = function stringify(code, transfer) {
     // We've been given a string, so we're going to assume that it's path to file
     // that should be included instead.
     //
-    code = require('fs').readFileSync(code, 'utf-8');
+    code = _dereq_('fs').readFileSync(code, 'utf-8');
   }
 
   return transfer ? JSON.stringify(code) : code;
@@ -1523,13 +1523,13 @@ Fortress.stringify = function stringify(code, transfer) {
 //
 module.exports = Fortress;
 
-},{"containerization":8,"eventemitter3":10,"frames":11,"fs":5}],8:[function(require,module,exports){
+},{"containerization":8,"eventemitter3":10,"frames":11,"fs":5}],8:[function(_dereq_,module,exports){
 'use strict';
 
-var EventEmitter = require('eventemitter3')
-  , BaseImage = require('alcatraz')
+var EventEmitter = _dereq_('eventemitter3')
+  , BaseImage = _dereq_('alcatraz')
   , slice = Array.prototype.slice
-  , iframe = require('frames');
+  , iframe = _dereq_('frames');
 
 /**
  * Representation of a single container.
@@ -1972,7 +1972,7 @@ Container.prototype.destroy = function destroy() {
 //
 module.exports = Container;
 
-},{"alcatraz":9,"eventemitter3":10,"frames":11}],9:[function(require,module,exports){
+},{"alcatraz":9,"eventemitter3":10,"frames":11}],9:[function(_dereq_,module,exports){
 'use strict';
 
 /**
@@ -2187,7 +2187,7 @@ Alcatraz.prototype.transform = function transform() {
 //
 module.exports = Alcatraz;
 
-},{}],10:[function(require,module,exports){
+},{}],10:[function(_dereq_,module,exports){
 'use strict';
 
 /**
@@ -2366,7 +2366,7 @@ EventEmitter.EventEmitter3 = EventEmitter;
 try { module.exports = EventEmitter; }
 catch (e) {}
 
-},{}],11:[function(require,module,exports){
+},{}],11:[function(_dereq_,module,exports){
 'use strict';
 
 /**
@@ -2497,7 +2497,7 @@ module.exports = function iframe(el, id, options) {
   };
 };
 
-},{}],12:[function(require,module,exports){
+},{}],12:[function(_dereq_,module,exports){
 'use strict';
 /**
  * Cache the hasOwnProperty method.
@@ -2702,16 +2702,16 @@ get.text = text;
 
 module.exports = get;
 
-},{}],13:[function(require,module,exports){
+},{}],13:[function(_dereq_,module,exports){
 /*globals */
 'use strict';
 
-var EventEmitter = require('eventemitter3')
-  , collection = require('./collection')
-  , AsyncAsset = require('async-asset')
-  , Fortress = require('fortress')
-  , async = require('./async')
-  , val = require('parsifal')
+var EventEmitter = _dereq_('eventemitter3')
+  , collection = _dereq_('./collection')
+  , AsyncAsset = _dereq_('async-asset')
+  , Fortress = _dereq_('fortress')
+  , async = _dereq_('./async')
+  , val = _dereq_('parsifal')
   , undefined
   , sandbox;
 
@@ -3335,4 +3335,3 @@ module.exports = Pagelet;
 },{"./async":1,"./collection":2,"async-asset":4,"eventemitter3":6,"fortress":7,"parsifal":12}]},{},[3])
 (3)
 });
-;
