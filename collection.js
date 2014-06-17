@@ -80,6 +80,7 @@ function size(collection) {
  */
 function array(obj) {
   if ('array' === type(obj)) return obj;
+  if ('arguments' === type(obj)) return Array.prototype.slice.call(obj, 0);
 
   return obj  // Only transform objects in to an array when they exist.
     ? [obj]
@@ -107,32 +108,31 @@ function index(arr, o) {
 }
 
 /**
- * Merge two objects.
+ * Merge all given objects in to one objects.
  *
- * @param {Object} one The main object.
- * @param {Object} two Property overrides.
- * @param {Number} deep Depth of cloning.
- * @param {Array} seen Array of props we've seen before.
  * @returns {Object}
  * @api public
  */
-function copy(one, two, deep, lastseen) {
-  var depth = 'number' === type(deep) ? deep : 2
-    , seen = lastseen || []
-    , result = {};
+function copy() {
+  var result = {}
+    , depth = 2
+    , seen = [];
 
-  each([one, two], function each(obj) {
-    for (var prop in obj) {
-      if (hasOwn.call(obj, prop) && !~index(seen, obj[prop])) {
-        if (type(obj[prop]) !== 'object' || !depth) {
-          result[prop] = obj[prop];
-          seen.push(obj[prop]);
-        } else {
-          copy(result[prop], obj[prop], depth - 1, seen);
+  (function worker() {
+    each(array(arguments), function each(obj) {
+      for (var prop in obj) {
+        if (hasOwn.call(obj, prop) && !~index(seen, obj[prop])) {
+          if (type(obj[prop]) !== 'object' || !depth) {
+            result[prop] = obj[prop];
+            seen.push(obj[prop]);
+          } else {
+            depth--;
+            worker(result[prop], obj[prop]);
+          }
         }
       }
-    }
-  });
+    });
+  }).apply(null, arguments);
 
   return result;
 }

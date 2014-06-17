@@ -134,6 +134,7 @@ function size(collection) {
  */
 function array(obj) {
   if ('array' === type(obj)) return obj;
+  if ('arguments' === type(obj)) return Array.prototype.slice.call(obj, 0);
 
   return obj  // Only transform objects in to an array when they exist.
     ? [obj]
@@ -161,32 +162,31 @@ function index(arr, o) {
 }
 
 /**
- * Merge two objects.
+ * Merge all given objects in to one objects.
  *
- * @param {Object} one The main object.
- * @param {Object} two Property overrides.
- * @param {Number} deep Depth of cloning.
- * @param {Array} seen Array of props we've seen before.
  * @returns {Object}
  * @api public
  */
-function copy(one, two, deep, lastseen) {
-  var depth = 'number' === type(deep) ? deep : 2
-    , seen = lastseen || []
-    , result = {};
+function copy() {
+  var result = {}
+    , depth = 2
+    , seen = [];
 
-  each([one, two], function each(obj) {
-    for (var prop in obj) {
-      if (hasOwn.call(obj, prop) && !~index(seen, obj[prop])) {
-        if (type(obj[prop]) !== 'object' || !depth) {
-          result[prop] = obj[prop];
-          seen.push(obj[prop]);
-        } else {
-          copy(result[prop], obj[prop], depth - 1, seen);
+  (function worker() {
+    each(array(arguments), function each(obj) {
+      for (var prop in obj) {
+        if (hasOwn.call(obj, prop) && !~index(seen, obj[prop])) {
+          if (type(obj[prop]) !== 'object' || !depth) {
+            result[prop] = obj[prop];
+            seen.push(obj[prop]);
+          } else {
+            depth--;
+            worker(result[prop], obj[prop]);
+          }
         }
       }
-    }
-  });
+    });
+  }).apply(null, arguments);
 
   return result;
 }
@@ -2774,8 +2774,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   this.streaming = !!data.streaming;        // Are we streaming POST/GET.
   this.container = this.sandbox.create();   // Create an application sandbox.
   this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
-  this.hash = data.md5;                     // Hash of the template.
-  this.template = null;                     // Template is set after js loading.
+  this.hash = data.hash;                    // Hash of the template.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
@@ -2853,12 +2852,25 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
 
-    pagelet.template = pipe.templates[data.md5];
     pagelet.broadcast('loaded');
 
     pagelet.render(pagelet.parse());
     pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
+};
+
+/**
+ * Get the template for a given type. We currently only support `client` and
+ * `error` as types.
+ *
+ * @param {String} type Template type
+ * @returns {Function}
+ * @api private
+ */
+Pagelet.prototype.template = function template(type) {
+  type = type || 'client';
+
+  return this.pipe.templates[this.hash[type]];
 };
 
 /**
@@ -3146,7 +3158,7 @@ Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length) return false;
 
   var mode = this.mode in this ? this[this.mode] : this.html
-    , template = this.template;
+    , template = this.template('client');
 
   //
   // We have been given an object instead of pure HTML so we are going to make
@@ -3159,9 +3171,20 @@ Pagelet.prototype.render = function render(html) {
     && (
       'object' === collection.type(html)
       || undefined === html && 'object' === collection.type(this.data)
+      || html instanceof Error
     )) {
-    try { html = template(collection.copy(html || {}, this.data || {})); }
-    catch (e) { /* @TODO render the error template */ }
+    try {
+      if (html instanceof Error) throw html; // So it's captured an processed as error
+      html = template(collection.copy(html || {}, this.data || {}));
+    }
+    catch (e) {
+      html = this.template('error')(collection.copy(html || {}, this.data || {}, {
+        reason: 'Failed to render: '+ this.name,
+        message: e.message,
+        stack: e.stack,
+        error: e
+      }));
+    }
   }
 
   //
