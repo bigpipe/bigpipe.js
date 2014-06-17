@@ -3187,11 +3187,6 @@ Pagelet.prototype.render = function render(html) {
     }
   }
 
-  //
-  // Failed to get any HTML
-  //
-  if (!html) return false;
-
   collection.each(this.placeholders, function each(root) {
     mode.call(this, root, html);
   }, this);
