@@ -75,7 +75,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // This pagelet was actually part of a parent pagelet, so set a reference to
   // the parent pagelet that was loaded.
   //
-  this.parent = data.parent ? pipe.get(data.parent) : undefined;
+  var parent = this.parent = data.parent ? pipe.get(data.parent) : undefined;
 
   //
   // Locate all the placeholders for this given pagelet.
@@ -148,8 +148,18 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     if (err) return pagelet.broadcast('error', err);
 
     pagelet.broadcast('loaded');
-
     pagelet.render(pagelet.parse());
+
+    //
+    // All resources are loaded, but we have a parent element. When the parent
+    // element renders it will most likely also nuke our placeholder references
+    // preventing us from rendering updates again.
+    //
+    if (parent) parent.on('render', function render() {
+      pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
+      pagelet.render(pagelet.data || pagelet.parse());
+    });
+
     pagelet.initialize();
   }, { context: this.pipe, timeout: this.timeout });
 };
@@ -332,7 +342,9 @@ Pagelet.prototype.processor = function processor(packet) {
 
   switch (packet.type) {
     case 'rpc':
-      EventEmitter.prototype.emit.apply(this, ['rpc:'+ packet.id].concat(packet.args || []));
+      EventEmitter.prototype.emit.apply(this, [
+        'rpc:'+ packet.id
+      ].concat(packet.args || []));
     break;
 
     case 'event':
