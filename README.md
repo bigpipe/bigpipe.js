@@ -1,12 +1,12 @@
-# Pipe
+# BigPipe.js
 
-`Pipe` is the client side component for the [BigPipe] framework. It orchestrates
-the arrival of [pagelet]'s on the page, loads all assets and setup the real-time
-connections. It's the glue between the server and your own client code. While
-this library is highly opinionated and developed against the features that are
-provided in [BigPipe] we made sure that every piece of code is re-usable by the
-community. We've extracted various of components out of this library and
-released them as separate projects:
+`BigPipe.js` is the client side component for the [BigPipe] framework. It
+orchestrates the arrival of [pagelet]'s on the page, loads all assets and setup
+the real-time connections. It's the glue between the server and your own client
+code. While this library is highly opinionated and developed against the
+features that are provided in [BigPipe] we made sure that every piece of code is
+re-usable by the community. We've extracted various of components out of this
+library and released them as separate projects:
 
 - **[frames]**: A small function for creating and managing iframes in the DOM.
 - **[containerization]**: Containerization for front-end code.
@@ -21,7 +21,7 @@ The code is released through npm, but it doesn't work in Node.js. We merely use
 it for dependency management.
 
 ```
-npm install --save pipe.js
+npm install --save bigpipe.js
 ```
 
 We assume that this code is loaded in an environment that has [primus] and it's

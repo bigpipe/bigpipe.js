@@ -7,8 +7,8 @@ var EventEmitter = require('eventemitter3')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
-  , undefined
-  , sandbox;
+  , sandbox
+  , undef;
 
 //
 // Async Asset loader.
@@ -19,15 +19,15 @@ var assets = new AsyncAsset();
  * Representation of a single pagelet.
  *
  * @constructor
- * @param {Pipe} pipe The pipe.
+ * @param {BigPipe} bigpipe The bigpipe.
  * @api public
  */
-function Pagelet(pipe) {
+function Pagelet(bigpipe) {
   EventEmitter.call(this);
 
-  this.orchestrate = pipe.orchestrate;
-  this.stream = pipe.stream;
-  this.pipe = pipe;
+  this.orchestrate = bigpipe.orchestrate;
+  this.stream = bigpipe.stream;
+  this.bigpipe = bigpipe;
 
   //
   // Create one single Fortress instance that orchestrates all iframe based client
@@ -52,7 +52,7 @@ Pagelet.prototype.constructor = Pagelet;
  * @api private
  */
 Pagelet.prototype.configure = function configure(name, data, roots) {
-  var pipe = this.pipe
+  var bigpipe = this.bigpipe
     , pagelet = this;
 
   //
@@ -75,7 +75,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // This pagelet was actually part of a parent pagelet, so set a reference to
   // the parent pagelet that was loaded.
   //
-  var parent = this.parent = data.parent ? pipe.get(data.parent) : undefined;
+  var parent = this.parent = data.parent ? bigpipe.get(data.parent) : undef;
 
   //
   // Locate all the placeholders for this given pagelet.
@@ -161,7 +161,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     });
 
     pagelet.initialize();
-  }, { context: this.pipe, timeout: this.timeout });
+  }, { context: this.bigpipe, timeout: this.timeout });
 };
 
 /**
@@ -175,7 +175,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
 Pagelet.prototype.template = function template(type) {
   type = type || 'client';
 
-  return this.pipe.templates[this.hash[type]];
+  return this.bigpipe.templates[this.hash[type]];
 };
 
 /**
@@ -185,7 +185,7 @@ Pagelet.prototype.template = function template(type) {
  * @returns {Pagelet|Undefined}
  */
 Pagelet.prototype.pagelet = function pagelet(name) {
-  return this.pipe.get(name, this.name);
+  return this.bigpipe.get(name, this.name);
 };
 
 /**
@@ -310,6 +310,7 @@ Pagelet.prototype.submit = function submit(form) {
   // Now that we have a JSON object, we can just send it over our real-time
   // connection and wait for a page refresh.
   //
+  this.broadcast('submit', (form.method || 'GET').toLowerCase(), data);
   this.substream.write({
     type: (form.method || 'GET').toLowerCase(),
     body: data
@@ -394,7 +395,9 @@ Pagelet.prototype.initialize = function initialise() {
 /**
  * Emit events on the server side Pagelet instance.
  *
- * @param {String} event
+ * @param {String} event Name of the event you wish to emit on the server.
+ * @returns {Boolean}
+ * @api public
  */
 Pagelet.prototype.emit = function emit(event) {
   this.substream.write({
@@ -421,7 +424,7 @@ Pagelet.prototype.broadcast = function broadcast(event) {
     name = this.parent.name +':'+ name;
   }
 
-  this.pipe.emit.apply(this.pipe, [
+  this.bigpipe.emit.apply(this.bigpipe, [
     name,
     this
   ].concat(Array.prototype.slice.call(arguments, 1)));
@@ -484,7 +487,7 @@ Pagelet.prototype.render = function render(html) {
        'function' === collection.type(template)
     && (
       'object' === collection.type(html)
-      || undefined === html && 'object' === collection.type(this.data)
+      || undef === html && 'object' === collection.type(this.data)
       || html instanceof Error
     )) {
     try {
@@ -505,7 +508,7 @@ Pagelet.prototype.render = function render(html) {
     mode.call(this, root, html);
   }, this);
 
-  this.pipe.rendered.push(this.name);
+  this.bigpipe.rendered.push(this.name);
   this.broadcast('render', html);
   return true;
 };
@@ -557,7 +560,7 @@ Pagelet.prototype.getElementNS = function getElementNS(mode) {
 Pagelet.prototype.createElements = function createElements(root, content) {
   var fragment = document.createDocumentFragment()
     , div = document.createElementNS(this.getElementNS(this.mode), 'div')
-    , borked = this.pipe.IEV < 7;
+    , borked = this.bigpipe.IEV < 7;
 
   //
   // Clean out old HTML before we append our new HTML or we will get duplicate
@@ -654,7 +657,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Everything has been cleaned up, release it to our Freelist Pagelet pool.
   //
-  this.pipe.free(this);
+  this.bigpipe.free(this);
 
   return this;
 };

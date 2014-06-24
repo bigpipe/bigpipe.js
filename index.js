@@ -6,7 +6,7 @@ var EventEmitter = require('eventemitter3')
   , Pagelet = require('./pagelet');
 
 /**
- * Pipe is the client-side library which is automatically added to pages which
+ * BigPipe is the client-side library which is automatically added to pages which
  * uses the BigPipe framework. It assumes that this library is bundled with
  * a Primus instance which uses the `substream` plugin.
  *
@@ -18,11 +18,11 @@ var EventEmitter = require('eventemitter3')
  *
  * @constructor
  * @param {String} server The server address we need to connect to.
- * @param {Object} options Pipe configuration.
+ * @param {Object} options BigPipe configuration.
  * @api public
  */
-function Pipe(server, options) {
-  if (!(this instanceof Pipe)) return new Pipe(server, options);
+function BigPipe(server, options) {
+  if (!(this instanceof BigPipe)) return new BigPipe(server, options);
   if ('object' === typeof server) {
     options = server;
     server = undefined;
@@ -52,17 +52,17 @@ function Pipe(server, options) {
 // Inherit from EventEmitter3, use old school inheritance because that's the way
 // we roll. Oh and it works in every browser.
 //
-Pipe.prototype = new EventEmitter();
-Pipe.prototype.constructor = Pipe;
+BigPipe.prototype = new EventEmitter();
+BigPipe.prototype.constructor = BigPipe;
 
 /**
- * Configure the Pipe.
+ * Configure the BigPipe.
  *
  * @param {Object} options Configuration.
- * @return {Pipe}
+ * @return {BigPipe}
  * @api private
  */
-Pipe.prototype.configure = function configure(options) {
+BigPipe.prototype.configure = function configure(options) {
   var root = this.root
     , className = (root.className || '').replace(/no[_-]js\s?/, '');
 
@@ -87,7 +87,7 @@ Pipe.prototype.configure = function configure(options) {
  * @type {Number}
  * @private
  */
-Pipe.prototype.IEV = document.documentMode
+BigPipe.prototype.IEV = document.documentMode
   || +(/MSIE.(\d+)/.exec(navigator.userAgent) || [])[1];
 
 /**
@@ -96,37 +96,37 @@ Pipe.prototype.IEV = document.documentMode
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Pagelet data.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.prototype.arrive = function arrive(name, data) {
+BigPipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
-  var pipe = this
-    , root = pipe.root
+  var bigpipe = this
+    , root = bigpipe.root
     , className = (root.className || '').split(' ');
 
   //
   // Create child pagelet after parent has finished rendering.
   //
-  if (!pipe.has(name)) {
-    if (data.parent && !~pipe.rendered.indexOf(data.parent)) {
-      pipe.once(data.parent +':render', function render() {
-        pipe.create(name, data, pipe.get(data.parent).placeholders);
+  if (!bigpipe.has(name)) {
+    if (data.parent && !~bigpipe.rendered.indexOf(data.parent)) {
+      bigpipe.once(data.parent +':render', function render() {
+        bigpipe.create(name, data, bigpipe.get(data.parent).placeholders);
       });
     } else {
-      pipe.create(name, data);
+      bigpipe.create(name, data);
     }
   }
 
-  if (data.processed !== pipe.expected) return pipe;
+  if (data.processed !== bigpipe.expected) return bigpipe;
 
   if (~className.indexOf('pagelets-loading')) {
     className.splice(className.indexOf('pagelets-loading'), 1);
   }
 
   root.className = className.join(' ');
-  pipe.emit('loaded');
+  bigpipe.emit('loaded');
 
   return this;
 };
@@ -137,24 +137,24 @@ Pipe.prototype.arrive = function arrive(name, data) {
  * @param {String} name The name of the pagelet.
  * @param {Object} data Data for the pagelet.
  * @param {Array} roots Root elements we can search can search for.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api private
  */
-Pipe.prototype.create = function create(name, data, roots) {
+BigPipe.prototype.create = function create(name, data, roots) {
   data = data || {};
 
-  var pipe = this
-    , pagelet = pipe.alloc()
+  var bigpipe = this
+    , pagelet = bigpipe.alloc()
     , nr = data.processed || 0;
 
-  pipe.pagelets.push(pagelet);
+  bigpipe.pagelets.push(pagelet);
   pagelet.configure(name, data, roots);
 
   //
   // A new pagelet has been loaded, emit a progress event.
   //
-  pipe.emit('progress', Math.round((nr / pipe.expected) * 100), nr, pagelet);
-  pipe.emit('create', pagelet);
+  bigpipe.emit('progress', Math.round((nr / bigpipe.expected) * 100), nr, pagelet);
+  bigpipe.emit('create', pagelet);
 };
 
 /**
@@ -164,7 +164,7 @@ Pipe.prototype.create = function create(name, data, roots) {
  * @returns {Boolean}
  * @api public
  */
-Pipe.prototype.has = function has(name) {
+BigPipe.prototype.has = function has(name) {
   return !!this.get(name);
 };
 
@@ -176,7 +176,7 @@ Pipe.prototype.has = function has(name) {
  * @returns {Pagelet|undefined} The found pagelet.
  * @api public
  */
-Pipe.prototype.get = function get(name, parent) {
+BigPipe.prototype.get = function get(name, parent) {
   var found;
 
   collection.each(this.pagelets, function each(pagelet) {
@@ -196,10 +196,10 @@ Pipe.prototype.get = function get(name, parent) {
  * Remove the pagelet.
  *
  * @param {String} name The name of the pagelet that needs to be removed.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.prototype.remove = function remove(name) {
+BigPipe.prototype.remove = function remove(name) {
   var pagelet = this.get(name)
     , index = collection.index(this.pagelets, pagelet);
 
@@ -216,10 +216,10 @@ Pipe.prototype.remove = function remove(name) {
  * Broadcast an event to all connected pagelets.
  *
  * @param {String} event The event that needs to be broadcasted.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api public
  */
-Pipe.prototype.broadcast = function broadcast(event) {
+BigPipe.prototype.broadcast = function broadcast(event) {
   var args = arguments;
 
   collection.each(this.pagelets, function each(pagelet) {
@@ -236,7 +236,7 @@ Pipe.prototype.broadcast = function broadcast(event) {
  * @returns {Pagelet}
  * @api private
  */
-Pipe.prototype.alloc = function alloc() {
+BigPipe.prototype.alloc = function alloc() {
   return this.freelist.length
     ? this.freelist.shift()
     : new Pagelet(this);
@@ -250,7 +250,7 @@ Pipe.prototype.alloc = function alloc() {
  * @returns {Boolean}
  * @api private
  */
-Pipe.prototype.free = function free(pagelet) {
+BigPipe.prototype.free = function free(pagelet) {
   if (this.freelist.length < this.maximum) {
     this.freelist.push(pagelet);
     return true;
@@ -266,7 +266,7 @@ Pipe.prototype.free = function free(pagelet) {
  * @param {String} id The id of the Page that rendered this page.
  * @api public
  */
-Pipe.prototype.visit = function visit(url, id) {
+BigPipe.prototype.visit = function visit(url, id) {
   this.id = id || this.id;              // Unique ID of the page.
   this.url = url;                       // Location of the page.
 
@@ -286,15 +286,15 @@ Pipe.prototype.visit = function visit(url, id) {
  *
  * @param {String} url The server address.
  * @param {Object} options The Primus configuration.
- * @returns {Pipe}
+ * @returns {BigPipe}
  * @api private
  */
-Pipe.prototype.connect = function connect(url, options) {
+BigPipe.prototype.connect = function connect(url, options) {
   options = options || {};
   options.manual = true;
 
   var primus = this.stream = new Primus(url, options)
-    , pipe = this;
+    , bigpipe = this;
 
   this.orchestrate = primus.substream('pipe:orchestrate');
 
@@ -307,8 +307,8 @@ Pipe.prototype.connect = function connect(url, options) {
   primus.on('outgoing::url', function url(options) {
     var querystring = primus.querystring(options.query || '');
 
-    querystring._bp_pid = pipe.id;
-    querystring._bp_url = pipe.url;
+    querystring._bp_pid = bigpipe.id;
+    querystring._bp_url = bigpipe.url;
 
     options.query = primus.querystringify(querystring);
   });
@@ -323,6 +323,6 @@ Pipe.prototype.connect = function connect(url, options) {
 };
 
 //
-// Expose the pipe
+// Expose the bigpipe
 //
-module.exports = Pipe;
+module.exports = BigPipe;
