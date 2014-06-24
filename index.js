@@ -102,7 +102,8 @@ BigPipe.prototype.IEV = document.documentMode
 BigPipe.prototype.arrive = function arrive(name, data) {
   data = data || {};
 
-  var bigpipe = this
+  var index
+    , bigpipe = this
     , root = bigpipe.root
     , className = (root.className || '').split(' ');
 
@@ -110,7 +111,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // Create child pagelet after parent has finished rendering.
   //
   if (!bigpipe.has(name)) {
-    if (data.parent && !~bigpipe.rendered.indexOf(data.parent)) {
+    if (data.parent && !~collection.index(bigpipe.rendered, data.parent)) {
       bigpipe.once(data.parent +':render', function render() {
         bigpipe.create(name, data, bigpipe.get(data.parent).placeholders);
       });
@@ -121,11 +122,11 @@ BigPipe.prototype.arrive = function arrive(name, data) {
 
   if (data.processed !== bigpipe.expected) return bigpipe;
 
-  if (~className.indexOf('pagelets-loading')) {
-    className.splice(className.indexOf('pagelets-loading'), 1);
+  if (~(index = collection.index(className, 'pagelets-loading'))) {
+    className.splice(index, 1);
+    root.className = className.join(' ');
   }
 
-  root.className = className.join(' ');
   bigpipe.emit('loaded');
 
   return this;
