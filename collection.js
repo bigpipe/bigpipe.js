@@ -96,6 +96,8 @@ function array(obj) {
  * @api public
  */
 function index(arr, o) {
+  if ('function' === typeof arr.indexOf) return arr.indexOf(o);
+
   for (
     var j = arr.length,
         i = i < 0 ? i + j < 0 ? 0 : i + j : i || 0;

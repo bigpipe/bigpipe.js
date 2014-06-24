@@ -19,7 +19,7 @@ var assets = new AsyncAsset();
  * Representation of a single pagelet.
  *
  * @constructor
- * @param {BigPipe} bigpipe The bigpipe.
+ * @param {BigPipe} bigpipe The BigPipe instance that was created.
  * @api public
  */
 function Pagelet(bigpipe) {
@@ -58,18 +58,19 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // Pagelet identification.
   //
-  this.id = data.id;                        // ID of the pagelet.
-  this.name = name;                         // Name of the pagelet.
-  this.css = collection.array(data.css);    // CSS for the Page.
-  this.js = collection.array(data.js);      // Dependencies for the page.
-  this.run = data.run;                      // Pagelet client code.
-  this.rpc = data.rpc;                      // Pagelet RPC methods.
-  this.data = data.data;                    // All the template data.
-  this.mode = data.mode;                    // Fragment rendering mode.
-  this.streaming = !!data.streaming;        // Are we streaming POST/GET.
-  this.container = this.sandbox.create();   // Create an application sandbox.
-  this.timeout = data.timeout || 25 * 1000; // Resource loading timeout.
-  this.hash = data.hash;                    // Hash of the template.
+  this.id = data.id;                          // ID of the pagelet.
+  this.name = name;                           // Name of the pagelet.
+  this.css = collection.array(data.css);      // CSS for the Page.
+  this.js = collection.array(data.js);        // Dependencies for the page.
+  this.run = data.run;                        // Pagelet client code.
+  this.rpc = data.rpc;                        // Pagelet RPC methods.
+  this.data = data.data;                      // All the template data.
+  this.mode = data.mode;                      // Fragment rendering mode.
+  this.streaming = !!data.streaming;          // Are we streaming POST/GET.
+  this.container = this.sandbox.create();     // Create an application sandbox.
+  this.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
+  this.hash = data.hash;                      // Hash of the template.
+  this.loader = data.loader || '';            // Loading placeholder.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
@@ -88,6 +89,22 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   if (data.remove) {
     return this.destroy(true);
   }
+
+  //
+  // If we don't have any loading placeholders we want to scan the current
+  // placeholders for content and assume that this content should be used when
+  // the pagelet is loading or re-loading content. This also needs to be done
+  // BEFORE we render the template from the server or we will capture the wrong
+  // piece of HTML.
+  //
+  if (!this.loader) collection.each(this.placeholders, function each(node) {
+    if (pagelet.loader) return false;
+
+    var html = (node.innerHTML || '').replace(/^\s+|\s+$/g, '');
+    if (html.length) pagelet.loader = html;
+
+    return !pagelet.loader;
+  });
 
   //
   // Attach event listeners for FORM posts so we can intercept those.
@@ -315,6 +332,7 @@ Pagelet.prototype.submit = function submit(form) {
     type: (form.method || 'GET').toLowerCase(),
     body: data
   });
+  this.loading();
 
   return data;
 };
@@ -328,7 +346,7 @@ Pagelet.prototype.submit = function submit(form) {
 Pagelet.prototype.get = function get() {
   this.substream.write({ type: 'get' });
 
-  return this;
+  return this.loading();
 };
 
 /**
@@ -355,6 +373,7 @@ Pagelet.prototype.processor = function processor(packet) {
     break;
 
     case 'fragment':
+      this.loading(true);
       this.render(packet.frag.view);
     break;
 
@@ -605,6 +624,44 @@ Pagelet.prototype.parse = function parse() {
   return comment
     .substring(1, comment.length -1)
     .replace(/\\([\s\S]|$)/g, '$1');
+};
+
+/**
+ * Set the pagelet in a loading state.
+ *
+ * @param {Boolean} unloading
+ * @returns {Pagelet}
+ * @api public
+ */
+Pagelet.prototype.loading = function loading(unloading) {
+  if (!unloading) this.render(
+    'function' !== typeof this.loader
+      ? this.loader || ''
+      : this.loader()
+  );
+
+  collection.each(this.placeholders, !unloading ? function add(node) {
+    var className = (node.className || '').split(' ');
+
+    if (!~collection.index(className, 'loading')) {
+      className.push('loading');
+      node.className = className.join('');
+    }
+
+    node.style.cursor = 'wait';
+  } : function remove(node) {
+    var className = (node.className || '').split(' ')
+      , index = collection.index(className, 'loading');
+
+    if (~index) {
+      className.split(index, 1);
+      node.className = className.join('');
+    }
+
+    node.style.cursor = '';
+  });
+
+  return this;
 };
 
 /**
