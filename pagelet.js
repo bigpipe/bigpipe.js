@@ -58,37 +58,37 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // Pagelet identification.
   //
-  this.id = data.id;                          // ID of the pagelet.
-  this.name = name;                           // Name of the pagelet.
-  this.rpc = collection.array(data.rpc);      // Pagelet RPC methods.
-  this.css = collection.array(data.css);      // CSS for the Page.
-  this.js = collection.array(data.js);        // Dependencies for the page.
-  this.run = data.run;                        // Pagelet client code.
-  this.data = data.data;                      // All the template data.
-  this.mode = data.mode;                      // Fragment rendering mode.
-  this.streaming = !!data.streaming;          // Are we streaming POST/GET.
-  this.container = this.sandbox.create();     // Create an application sandbox.
-  this.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
-  this.hash = data.hash;                      // Hash of the template.
-  this.loader = data.loader || '';            // Loading placeholder.
+  pagelet.id = data.id;                          // ID of the pagelet.
+  pagelet.name = name;                           // Name of the pagelet.
+  pagelet.rpc = collection.array(data.rpc);      // Pagelet RPC methods.
+  pagelet.css = collection.array(data.css);      // CSS for the Page.
+  pagelet.js = collection.array(data.js);        // Dependencies for the page.
+  pagelet.run = data.run;                        // Pagelet client code.
+  pagelet.data = data.data;                      // All the template data.
+  pagelet.mode = data.mode;                      // Fragment rendering mode.
+  pagelet.streaming = !!data.streaming;          // Are we streaming POST/GET.
+  pagelet.container = pagelet.sandbox.create();  // Create an application sandbox.
+  pagelet.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
+  pagelet.hash = data.hash;                      // Hash of the template.
+  pagelet.loader = data.loader || '';            // Loading placeholder.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
   // the parent pagelet that was loaded.
   //
-  var parent = this.parent = data.parent ? bigpipe.get(data.parent) : undef;
+  var parent = pagelet.parent = data.parent
+    ? bigpipe.get(data.parent)
+    : undef;
 
   //
   // Locate all the placeholders for this given pagelet.
   //
-  this.placeholders = this.$('data-pagelet', name, roots);
+  pagelet.placeholders = pagelet.$('data-pagelet', name, roots);
 
   //
   // The pagelet as we've been given the remove flag.
   //
-  if (data.remove) {
-    return this.destroy(true);
-  }
+  if (data.remove) return pagelet.destroy(true);
 
   //
   // If we don't have any loading placeholders we want to scan the current
@@ -97,7 +97,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // BEFORE we render the template from the server or we will capture the wrong
   // piece of HTML.
   //
-  if (!this.loader) collection.each(this.placeholders, function each(node) {
+  if (!pagelet.loader) collection.each(pagelet.placeholders, function each(node) {
     if (pagelet.loader) return false;
 
     var html = (node.innerHTML || '').replace(/^\s+|\s+$/g, '');
@@ -109,13 +109,13 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // Attach event listeners for FORM posts so we can intercept those.
   //
-  this.listen();
+  pagelet.listen();
 
   //
   // Create a real-time Substream over which we can communicate over without.
   //
-  this.substream = this.stream.substream(this.name);
-  this.substream.on('data', function data(packet) {
+  pagelet.substream = pagelet.stream.substream(pagelet.name);
+  pagelet.substream.on('data', function data(packet) {
     pagelet.processor(packet);
   });
 
@@ -123,7 +123,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // Register the pagelet with the BigPipe server as an indication that we've
   // been fully loaded and ready for action.
   //
-  this.orchestrate.write({ type: 'pagelet', name: name, id: this.id });
+  pagelet.orchestrate.write({ type: 'pagelet', name: name, id: pagelet.id });
 
   //
   // Generate the RPC methods that we're given by the server. We will make the
@@ -134,7 +134,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // - The function given supports and uses error first callback styles.
   // - Does not override the build-in prototypes of the Pagelet.
   //
-  collection.each(this.rpc, function rpc(method) {
+  collection.each(pagelet.rpc, function rpc(method) {
     var counter = 0;
 
     //
@@ -157,28 +157,32 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // Should be called before we create `rpc` hooks.
   //
-  this.broadcast('configured', data);
+  pagelet.broadcast('configured', data);
 
-  async.each(this.css.concat(this.js), function download(url, next) {
+  async.each(pagelet.css, function download(url, next) {
     assets.add(url, next);
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
 
-    pagelet.broadcast('loaded');
     pagelet.render(pagelet.parse());
 
-    //
-    // All resources are loaded, but we have a parent element. When the parent
-    // element renders it will most likely also nuke our placeholder references
-    // preventing us from rendering updates again.
-    //
-    if (parent) parent.on('render', function render() {
-      pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
-      pagelet.render(pagelet.data || pagelet.parse());
-    });
+    async.each(pagelet.js, function download(url, next) {
+      assets.add(url, next);
+    }, function done(err) {
+      //
+      // All resources are loaded, but we have a parent element. When the parent
+      // element renders it will most likely also nuke our placeholder references
+      // preventing us from rendering updates again.
+      //
+      if (parent) parent.on('render', function render() {
+        pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
+        pagelet.render(pagelet.data || pagelet.parse());
+      });
 
-    pagelet.initialize();
-  }, { context: this.bigpipe, timeout: this.timeout });
+      pagelet.broadcast('loaded');
+      pagelet.initialize();
+    }, { timeout: pagelet.timeout });
+  }, { timeout: pagelet.timeout });
 };
 
 /**
@@ -527,7 +531,14 @@ Pagelet.prototype.render = function render(html) {
     mode.call(this, root, html);
   }, this);
 
-  this.bigpipe.rendered.push(this.name);
+  //
+  // Register the first time that we've rendered this pagelet as child pagelets
+  // might be waiting for it.
+  //
+  if (!~collection.index(this.bigpipe.rendered, this.name)) {
+    this.bigpipe.rendered.push(this.name);
+  }
+
   this.broadcast('render', html);
   return true;
 };
