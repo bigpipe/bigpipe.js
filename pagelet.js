@@ -654,7 +654,7 @@ Pagelet.prototype.loading = function loading(unloading) {
       , index = collection.index(className, 'loading');
 
     if (~index) {
-      className.split(index, 1);
+      className.splice(index, 1);
       node.className = className.join(' ');
     }
 
