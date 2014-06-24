@@ -645,7 +645,7 @@ Pagelet.prototype.loading = function loading(unloading) {
 
     if (!~collection.index(className, 'loading')) {
       className.push('loading');
-      node.className = className.join('');
+      node.className = className.join(' ');
     }
 
     node.style.cursor = 'wait';
@@ -655,7 +655,7 @@ Pagelet.prototype.loading = function loading(unloading) {
 
     if (~index) {
       className.split(index, 1);
-      node.className = className.join('');
+      node.className = className.join(' ');
     }
 
     node.style.cursor = '';
