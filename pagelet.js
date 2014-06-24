@@ -60,10 +60,10 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   this.id = data.id;                          // ID of the pagelet.
   this.name = name;                           // Name of the pagelet.
+  this.rpc = collection.array(data.rpc);      // Pagelet RPC methods.
   this.css = collection.array(data.css);      // CSS for the Page.
   this.js = collection.array(data.js);        // Dependencies for the page.
   this.run = data.run;                        // Pagelet client code.
-  this.rpc = data.rpc;                        // Pagelet RPC methods.
   this.data = data.data;                      // All the template data.
   this.mode = data.mode;                      // Fragment rendering mode.
   this.streaming = !!data.streaming;          // Are we streaming POST/GET.
@@ -629,7 +629,7 @@ Pagelet.prototype.parse = function parse() {
 /**
  * Set the pagelet in a loading state.
  *
- * @param {Boolean} unloading
+ * @param {Boolean} unloading We're not loading, but unloading.
  * @returns {Pagelet}
  * @api public
  */
@@ -695,7 +695,7 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Remove the added RPC handlers, make sure we don't delete prototypes.
   //
-  if (this.rpc && this.rpc.length) collection.each(this.rpc, function nuke(method) {
+  if (this.rpc.length) collection.each(this.rpc, function nuke(method) {
     if (method in Pagelet.prototype) return;
     delete pagelet[method];
   });
@@ -712,7 +712,14 @@ Pagelet.prototype.destroy = function destroy(remove) {
   if (this.substream) this.substream.end();
 
   //
-  // Everything has been cleaned up, release it to our Freelist Pagelet pool.
+  // Remove the CSS and JS assets.
+  //
+  collection.each(this.css.concat(this.js), function remove(url) {
+    assets.remove(url);
+  });
+
+  //
+  // Everything has been cleaned up, release it to our free list Pagelet pool.
   //
   this.bigpipe.free(this);
 
