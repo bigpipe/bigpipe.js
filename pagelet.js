@@ -26,8 +26,8 @@ function Pagelet(bigpipe) {
   EventEmitter.call(this);
 
   this.orchestrate = bigpipe.orchestrate;
+  this.bigpipe = this.pipe = bigpipe;
   this.stream = bigpipe.stream;
-  this.bigpipe = bigpipe;
 
   //
   // Create one single Fortress instance that orchestrates all iframe based client
