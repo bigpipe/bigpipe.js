@@ -371,7 +371,7 @@ Pagelet.prototype.processor = function processor(packet) {
     break;
 
     case 'event':
-      if (packet.args && packet.args.length) {
+      if (packet.args && packet.args.length && !this.reserved(packet.args[0])) {
         EventEmitter.prototype.emit.apply(this, packet.args);
       }
     break;
@@ -453,6 +453,35 @@ Pagelet.prototype.broadcast = function broadcast(event) {
   ].concat(Array.prototype.slice.call(arguments, 1)));
 
   return this;
+};
+
+/**
+ * Check if the event we're about to emit is a reserved event and should be
+ * blocked.
+ *
+ * @param {String} event Name of the event we want to emit
+ * @returns {Boolean}
+ * @api public
+ */
+Pagelet.prototype.reserved = function reserved(event) {
+  return /^rpc:\d+/.test(event)
+  || event in this.reserved.evens;
+};
+
+/**
+ * The events that are used internally.
+ *
+ * @type {Object}
+ * @api private
+ */
+Pagelet.prototype.reserved.events = {
+  configured: 1,    // Pagelet has been configured.
+  error: 1,         // Something when wrong in the Pagelet.
+  loaded: 1,        // All assets has been loaded.
+  submit: 1,        // We've submitted a form.
+  initialize: 1,    // Pagelet has been fully initialized, ready to go.
+  render: 1,        // Pagelet has rendered new HTML.
+  destroy: 1        // Pagelet has been destroyed.
 };
 
 /**

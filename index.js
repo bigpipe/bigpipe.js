@@ -224,10 +224,41 @@ BigPipe.prototype.broadcast = function broadcast(event) {
   var args = arguments;
 
   collection.each(this.pagelets, function each(pagelet) {
-    EventEmitter.prototype.emit.apply(pagelet, args);
+    if (!pagelet.reserved(event)) {
+      EventEmitter.prototype.emit.apply(pagelet, args);
+    }
   });
 
   return this;
+};
+
+/**
+ * Check if the event we're about to emit is a reserved event and should be
+ * blocked.
+ *
+ * Assume that every <name>: prefixed event is internal and should not be
+ * emitted by user code.
+ *
+ * @param {String} event Name of the event we want to emit
+ * @returns {Boolean}
+ * @api public
+ */
+BigPipe.prototype.reserved = function reserved(event) {
+  return this.has(event.split(':')[0])
+  || event in this.reserved.events;
+};
+
+/**
+ * The actual reserved events.
+ *
+ * @type {Object}
+ * @api private
+ */
+BigPipe.prototype.reserved.events = {
+  remove: 1,    // Pagelet has been removed.
+  loaded: 1,    // Pagelets have been loaded.
+  progress: 1,  // Loaded a new Pagelet.
+  create: 1     // Created a new Pagelet
 };
 
 /**
