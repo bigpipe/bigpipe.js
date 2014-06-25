@@ -27,12 +27,16 @@ function each(collection, iterator, context) {
 
   if ('array' === type(collection)) {
     for (; i < collection.length; i++) {
-      iterator.call(context || iterator, collection[i], i, collection);
+      if (false === iterator.call(context || iterator, collection[i], i, collection)) {
+        return; // If false is returned by the callback we need to bail out.
+      }
     }
   } else {
     for (i in collection) {
       if (hasOwn.call(collection, i)) {
-        iterator.call(context || iterator, collection[i], i, collection);
+        if (false === iterator.call(context || iterator, collection[i], i, collection)) {
+          return; // If false is returned by the callback we need to bail out.
+        }
       }
     }
   }
