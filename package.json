@@ -4,11 +4,11 @@
   "description": "The client-side library which is used in BigPipe to orchestrate the pagelets.",
   "main": "index.js",
   "scripts": {
-    "build": "npm run-script compile",
+    "browserify-tests": "browserify test/*.test.js -o test/phantom.js --debug",
     "compile": "browserify index.js -o dist/pipe.js --standalone BigPipe",
+    "phantom": "mocha-phantomjs test/phantom.html",
     "prepublish": "npm run-script compile",
-    "local": "zuul --local 1337 -- test/pipe.test.js",
-    "test": "mocha $(find test -name '*.test.js')"
+    "test": "npm run-script compile && npm run-script browserify-tests && npm run-script phantom"
   },
   "repository": {
     "type": "git",
@@ -35,7 +35,8 @@
     "assume": "0.0.x",
     "browserify": "4.1.x",
     "mocha": "1.20.x",
-    "mocha-phantomjs": "3.4.x",
+    "mocha-phantomjs": "3.5.x",
+    "phantomjs": "1.9.x",
     "pre-commit": "0.0.x",
     "zuul": "1.7.x"
   },
