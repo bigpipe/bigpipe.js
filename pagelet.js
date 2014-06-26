@@ -740,9 +740,6 @@ Pagelet.prototype.loading = function loading(unloading) {
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
- * @TODO unload CSS.
- * @TODO unload JavaScript.
- *
  * @param {Boolean} remove Remove the placeholder as well.
  * @api public
  */
