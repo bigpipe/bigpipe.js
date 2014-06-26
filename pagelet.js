@@ -71,6 +71,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
   pagelet.hash = data.hash;                      // Hash of the template.
   pagelet.loader = data.loader || '';            // Loading placeholder.
+  pagelet.lastclick = document.body;             // The last clicked element.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
@@ -174,8 +175,12 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
       // element renders it will most likely also nuke our placeholder references
       // preventing us from rendering updates again.
       //
+      // @TODO we need a pre-render event so we can clear assigned event
+      // listeners.
+      //
       if (parent) parent.on('render', function render() {
         pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
+        pagelet.listen();
         pagelet.render(pagelet.data || pagelet.parse());
       });
 
@@ -261,11 +266,23 @@ Pagelet.prototype.listen = function listen() {
     // data our self we can safely prevent default.
     //
     evt.preventDefault();
-    pagelet.submit(form, evt.explicitOriginalTarget);
+    pagelet.submit(form, pagelet.activeElement(evt));
+  }
+
+  /**
+   * We need cross browser way of getting the last clicked active element.
+   * `document.activeElement` seems to return `document.body` after you've
+   * clicked a button. So the only way we can get access to a button or input
+   * button is to listen to click events and hope that they emitted AFTER
+   */
+  function active(evt) {
+    evt = evt || window.event;
+    pagelet.lastclick = evt.target || evt.srcElement;
   }
 
   collection.each(this.placeholders, function each(root) {
     root.addEventListener('submit', submission, false);
+    root.addEventListener('click', active, false);
   });
 
   //
@@ -276,6 +293,7 @@ Pagelet.prototype.listen = function listen() {
   return this.once('destroy', function destroy() {
     collection.each(pagelet.placeholders, function each(root) {
       root.removeEventListener('submit', submission, false);
+      root.removeEventListener('click', active, false);
     });
   });
 };
@@ -294,8 +312,22 @@ Pagelet.prototype.submit = function submit(form, active) {
     , element
     , i;
 
-  active = active || document.activeElement;
+  active = active || this.activeElement();
 
+  //
+  // Story time children! Once upon a time there was a developer, this
+  // developer created a form with a lot of submit buttons. The developer
+  // knew that when a user clicked on one of those buttons the value="" and
+  // name="" attributes would get send to the server so he could see which
+  // button people had clicked. He implemented this and all was good. Until
+  // someone captured the `submit` event in the browser which didn't have
+  // a reference to the clicked element. This someone found out that the
+  // `document.activeElement` pointed to the last clicked element and used
+  // that to restore the same functionality and the day was saved again.
+  //
+  // There are valuable lessons to be learned here. Submit buttons are the
+  // suck. PERIOD.
+  //
   if (active && active.name) {
     data[active.name] = active.value;
   }
@@ -303,20 +335,6 @@ Pagelet.prototype.submit = function submit(form, active) {
   for (i = 0; i < elements.length; i++) {
     element = elements[i];
 
-    //
-    // Story time children! Once upon a time there was a developer, this
-    // developer created a form with a lot of submit buttons. The developer
-    // knew that when a user clicked on one of those buttons the value="" and
-    // name="" attributes would get send to the server so he could see which
-    // button people had clicked. He implemented this and all was good. Until
-    // someone captured the `submit` event in the browser which didn't have
-    // a reference to the clicked element. This someone found out that the
-    // `document.activeElement` pointed to the last clicked element and used
-    // that to restore the same functionality and the day was saved again.
-    //
-    // There are valuable lessons to be learned here. Submit buttons are the
-    // suck. PERIOD.
-    //
     if (
          element.name
       && !(element.name in data)
@@ -326,6 +344,8 @@ Pagelet.prototype.submit = function submit(form, active) {
       && (element.checked || !/^(?:checkbox|radio)$/i.test(element.type))
     ) data[element.name] = val(element);
   }
+
+  console.log(active, form.querySelector(':active'), document.querySelector(':active'));
 
   //
   // Now that we have a JSON object, we can just send it over our real-time
@@ -339,6 +359,17 @@ Pagelet.prototype.submit = function submit(form, active) {
   this.loading();
 
   return data;
+};
+
+/**
+ * Get the last clicked and therefor active element from the page.
+ *
+ * @param {Event} evt Optional event to search.
+ * @returns {Element}
+ * @api private
+ */
+Pagelet.prototype.activeElement = function activeElement(evt) {
+  return (evt || {}).explicitOriginalTarget || this.lastclick;
 };
 
 /**
@@ -599,6 +630,7 @@ Pagelet.prototype.svg = function svg(root, content) {
  *
  * @param {String} mode Mode the pagelet will be rendered in.
  * @return {String} Element namespace.
+ * @api private
  */
 Pagelet.prototype.getElementNS = function getElementNS(mode) {
   mode = mode.toLowerCase();
@@ -741,10 +773,10 @@ Pagelet.prototype.destroy = function destroy(remove) {
   });
 
   //
-  // Remove the sandboxing.
+  // Remove the sandboxing and prevent element leaking by deferencing them.
   //
   if (this.container) sandbox.kill(this.container.id);
-  this.placeholders = this.container = null;
+  this.placeholders = this.container = this.lastclick = null;
 
   //
   // Announce the destruction and remove it.
