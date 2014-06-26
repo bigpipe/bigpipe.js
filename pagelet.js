@@ -261,7 +261,7 @@ Pagelet.prototype.listen = function listen() {
     // data our self we can safely prevent default.
     //
     evt.preventDefault();
-    pagelet.submit(form);
+    pagelet.submit(form, evt.explicitOriginalTarget);
   }
 
   collection.each(this.placeholders, function each(root) {
@@ -284,20 +284,20 @@ Pagelet.prototype.listen = function listen() {
  * Submit the contents of a <form> to the server.
  *
  * @param {FormElement} form Form that needs to be submitted.
+ * @param {Element} active Element that initated the submit.
  * @returns {Object} The data that is ported to the server.
  * @api public
  */
-Pagelet.prototype.submit = function submit(form) {
-  var active = document.activeElement
-    , elements = form.elements
+Pagelet.prototype.submit = function submit(form, active) {
+  var elements = form.elements
     , data = {}
     , element
     , i;
 
+  active = active || document.activeElement;
+
   if (active && active.name) {
     data[active.name] = active.value;
-  } else {
-    active = false;
   }
 
   for (i = 0; i < elements.length; i++) {
