@@ -338,8 +338,6 @@ Pagelet.prototype.submit = function submit(form, active) {
     ) data[element.name] = val(element);
   }
 
-  console.log(active, form.querySelector(':active'), document.querySelector(':active'));
-
   //
   // Now that we have a JSON object, we can just send it over our real-time
   // connection and wait for a page refresh.
