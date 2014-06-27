@@ -160,34 +160,27 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   pagelet.broadcast('configured', data);
 
-  async.each(pagelet.css, function download(url, next) {
+  async.each(this.css.concat(this.js), function download(url, next) {
     assets.add(url, next);
   }, function done(err) {
     if (err) return pagelet.broadcast('error', err);
 
+    pagelet.broadcast('loaded');
     pagelet.render(pagelet.parse());
 
-    async.each(pagelet.js, function download(url, next) {
-      assets.add(url, next);
-    }, function done(err) {
-      //
-      // All resources are loaded, but we have a parent element. When the parent
-      // element renders it will most likely also nuke our placeholder references
-      // preventing us from rendering updates again.
-      //
-      // @TODO we need a pre-render event so we can clear assigned event
-      // listeners.
-      //
-      if (parent) parent.on('render', function render() {
-        pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
-        pagelet.listen();
-        pagelet.render(pagelet.data || pagelet.parse());
-      });
+    //
+    // All resources are loaded, but we have a parent element. When the parent
+    // element renders it will most likely also nuke our placeholder references
+    // preventing us from rendering updates again.
+    //
+    if (parent) parent.on('render', function render() {
+      pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
+      pagelet.listen();
+      pagelet.render(pagelet.data || pagelet.parse());
+    });
 
-      pagelet.broadcast('loaded');
-      pagelet.initialize();
-    }, { timeout: pagelet.timeout });
-  }, { timeout: pagelet.timeout });
+    pagelet.initialize();
+  }, { context: this.bigpipe, timeout: this.timeout });
 };
 
 /**
