@@ -4,11 +4,8 @@
   "description": "The client-side library which is used in BigPipe to orchestrate the pagelets.",
   "main": "index.js",
   "scripts": {
-    "browserify-tests": "browserify test/*.test.js -o test/phantom.js --debug",
-    "compile": "browserify index.js -o dist/pipe.js --standalone BigPipe",
-    "phantom": "mocha-phantomjs test/phantom.html",
     "prepublish": "npm run-script compile",
-    "test": "npm run-script compile && npm run-script browserify-tests && npm run-script phantom"
+    "test": "illuminati --phantom"
   },
   "repository": {
     "type": "git",
@@ -32,13 +29,8 @@
     "test"
   ],
   "devDependencies": {
-    "assume": "0.0.x",
-    "browserify": "4.1.x",
-    "mocha": "1.20.x",
-    "mocha-phantomjs": "3.5.x",
-    "phantomjs": "1.9.x",
-    "pre-commit": "0.0.x",
-    "zuul": "1.7.x"
+    "illuminati": "0.0.x",
+    "browserify": "4.1.x"
   },
   "author": "Arnout Kazemier",
   "license": "MIT",
