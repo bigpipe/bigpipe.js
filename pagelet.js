@@ -461,20 +461,28 @@ Pagelet.prototype.emit = function emit(event) {
  * @api public
  */
 Pagelet.prototype.broadcast = function broadcast(event) {
-  EventEmitter.prototype.emit.apply(this, arguments);
+  var pagelet = this;
 
-  var name = this.name +':'+ event;
+  /**
+   * Broadcast the event with namespaced name.
+   *
+   * @param {String} name Event name.
+   * @returns {Pagelet}
+   * @api private
+   */
+  function shout(name) {
+    pagelet.bigpipe.emit.apply(pagelet.bigpipe, [
+      name.join(':'),
+      pagelet
+    ].concat(Array.prototype.slice.call(arguments, 1)));
 
-  if (this.parent) {
-    name = this.parent.name +':'+ name;
+    return pagelet;
   }
 
-  this.bigpipe.emit.apply(this.bigpipe, [
-    name,
-    this
-  ].concat(Array.prototype.slice.call(arguments, 1)));
+  EventEmitter.prototype.emit.apply(this, arguments);
 
-  return this;
+  if (this.parent) shout([this.parent.name, this.name, event]);
+  return shout([this.name, event]);
 };
 
 /**
