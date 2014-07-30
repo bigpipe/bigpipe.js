@@ -30,7 +30,7 @@
   ],
   "devDependencies": {
     "illuminati": "0.0.x",
-    "browserify": "4.1.x"
+    "browserify": "5.9.x"
   },
   "author": "Arnout Kazemier",
   "license": "MIT",
