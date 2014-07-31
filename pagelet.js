@@ -176,7 +176,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     if (parent) parent.on('render', function render() {
       pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
       pagelet.listen();
-      pagelet.render(pagelet.data || pagelet.parse());
+      pagelet.render(pagelet.parse() || pagelet.data);
     });
 
     pagelet.initialize();
