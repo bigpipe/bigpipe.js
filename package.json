@@ -4,7 +4,7 @@
   "description": "The client-side library which is used in BigPipe to orchestrate the pagelets.",
   "main": "index.js",
   "scripts": {
-    "prepublish": "node_modules/.bin/browserify index.js -o dist/pipe.js --standalone BigPipe",
+    "prepublish": "browserify index.js -o dist/pipe.js --standalone BigPipe",
     "test": "illuminati --phantom"
   },
   "repository": {
