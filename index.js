@@ -302,7 +302,7 @@ BigPipe.prototype.visit = function visit(url, id) {
   this.id = id || this.id;              // Unique ID of the page.
   this.url = url;                       // Location of the page.
 
-  if (!this.orchestrate) return this.connect();
+  if (!this.orchestrate) this.connect();
 
   this.orchestrate.write({
     url: this.url,
@@ -346,8 +346,20 @@ BigPipe.prototype.connect = function connect(url, options) {
   });
 
   //
+  // We need to re-register our page and pagelet on the server. We assume that
+  // the server was restarted and caused the reconnect.
+  //
+  primus.on('reconnected', function reconnected() {
+    bigpipe.visit(bigpipe.url, bigpipe.id);
+
+    collection.each(bigpipe.pagelets, function each(pagelet) {
+      bigpipe.orchestrate.write({ type: 'pagelet', name: pagelet.name, id: pagelet.id });
+    });
+  });
+
+  //
   // We forced manual opening of the connection so we can listen to the correct
-  // event as it will be executed directly after the `.open` call.
+  // event `outgoing::url` as it will be executed directly after the `.open` call.
   //
   primus.open();
 
