@@ -225,6 +225,7 @@ Pagelet.prototype.listen = function listen() {
    */
   function submission(evt) {
     evt = evt || window.event;
+
     var form = evt.target || evt.srcElement;
 
     //
@@ -245,13 +246,16 @@ Pagelet.prototype.listen = function listen() {
          ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false')
       || !pagelet.streaming
     ) {
-      var action = form.getAttribute('action');
-      return form.setAttribute('action', [
-        action,
-        ~action.indexOf('?') ? '&' : '?',
-        '_pagelet=',
-        pagelet.name
-      ].join(''));
+      var action = form.getAttribute('action')
+        , _pagelet = '_pagelet='+ pagelet.name;
+
+      if (!~action.indexOf(_pagelet)) {
+        form.setAttribute('action', action +(
+          ~action.indexOf('?') ? '&' : '?'
+        )+ _pagelet);
+      }
+
+      return;
     }
 
     //
