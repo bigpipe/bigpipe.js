@@ -29,8 +29,9 @@
     "test"
   ],
   "devDependencies": {
-    "illuminati": "0.0.x",
-    "browserify": "5.9.x"
+    "assume": "0.0.x",
+    "browserify": "5.9.x",
+    "illuminati": "0.0.x"
   },
   "author": "Arnout Kazemier",
   "license": "MIT",
