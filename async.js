@@ -27,7 +27,7 @@ exports.each = function each(data, iterator, fn, options) {
   if (!size) return fn();
 
   collection.each(data, function iterating(item) {
-    iterator.call(options.context, item, function done(err) {
+    iterator.call(options.context || iterator, item, function done(err) {
       if (err) {
         fn(err);
         return fn = noop;
