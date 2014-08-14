@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "prepublish": "browserify index.js -o dist/pipe.js --standalone BigPipe",
-    "test": "illuminati --phantom"
+    "test": "illuminati --phantom",
+    "node-test": "illuminati"
   },
   "repository": {
     "type": "git",
