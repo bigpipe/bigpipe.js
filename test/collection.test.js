@@ -39,9 +39,11 @@ describe('collection', function () {
       var context = 'foo';
 
       collection.each([1, 2], function (item, index, arr) {
-        assume(context).to.equal(this);
-        assume(this).to.be.a('string');
-        assume(this).to.equal('foo');
+        var ctx = this.toString();
+
+        assume(ctx).to.be.a('string');
+        assume(ctx).to.equal('foo');
+        assume(context).to.equal(ctx);
       }, context);
     });
   });
