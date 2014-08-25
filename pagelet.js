@@ -91,7 +91,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // However do not destroy assets as unauthorized pagelets won't register
   // assets in the first place and they might be used by other pagelets.
   //
-  if (data.remove) return bigpipe.once('finished', function destroy() {
+  if (data.remove) return pagelet.once('finished', function destroy() {
     return pagelet.destroy({
       assets: false,
       remove: true
@@ -506,7 +506,7 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  */
 Pagelet.prototype.reserved = function reserved(event) {
   return /^rpc:\d+/.test(event)
-  || event in this.reserved.evens;
+  || event in this.reserved.events;
 };
 
 /**

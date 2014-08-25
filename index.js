@@ -106,6 +106,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   var index
     , bigpipe = this
     , root = bigpipe.root
+    , rendered = bigpipe.rendered
     , className = (root.className || '').split(' ');
 
   //
@@ -127,8 +128,8 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // processed.
   //
   if (data.remove) bigpipe.allowed--;
-  bigpipe.on([name, 'render'].join(':'), function finished() {
-    if (bigpipe.rendered.length === bigpipe.allowed) return bigpipe.emit('finished');
+  bigpipe.once([name, 'render'].join(':'), function finished() {
+    if (rendered.length === bigpipe.allowed) return bigpipe.broadcast('finished');
   });
 
   //
