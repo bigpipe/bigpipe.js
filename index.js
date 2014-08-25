@@ -128,7 +128,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // processed.
   //
   if (data.remove) bigpipe.allowed--;
-  bigpipe.once([name, 'render'].join(':'), function finished() {
+  else bigpipe.once(name +':render', function finished() {
     if (rendered.length === bigpipe.allowed) return bigpipe.broadcast('finished');
   });
 
