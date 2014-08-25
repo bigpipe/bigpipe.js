@@ -91,9 +91,11 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // However do not destroy assets as unauthorized pagelets won't register
   // assets in the first place and they might be used by other pagelets.
   //
-  if (data.remove) return pagelet.destroy({
-    assets: false,
-    remove: true
+  if (data.remove) return bigpipe.once('finished', function destroy() {
+    return pagelet.destroy({
+      assets: false,
+      remove: true
+    });
   });
 
   //
@@ -600,14 +602,13 @@ Pagelet.prototype.render = function render(html) {
   }, this);
 
   //
-  // Register the first time that we've rendered this pagelet as child pagelets
-  // might be waiting for it.
+  // Register the name of the rendered pagelet as child pagelets
+  // might be waiting for it. The length of the collection
+  // is also used to keep track of the number of rendered pagelets.
   //
-  if (!~collection.index(this.bigpipe.rendered, this.name)) {
-    this.bigpipe.rendered.push(this.name);
-  }
-
+  this.bigpipe.rendered.push(this.name);
   this.broadcast('render', html);
+
   return true;
 };
 

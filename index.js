@@ -42,7 +42,6 @@ function BigPipe(server, options) {
   this.rendered = [];                     // List of already rendered pagelets.
   this.assets = {};                       // Asset cache.
   this.root = document.documentElement;   // The <html> element.
-  this.n = 0;                             // Rendered pagelets (only authorized).
 
   EventEmitter.call(this);
 
@@ -128,8 +127,8 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // processed.
   //
   if (data.remove) bigpipe.allowed--;
-  bigpipe.once([name, 'loaded'].join(':'), function finished() {
-    if (++bigpipe.n === bigpipe.allowed) return bigpipe.emit('finished');
+  bigpipe.on([name, 'render'].join(':'), function finished() {
+    if (bigpipe.rendered.length === bigpipe.allowed) return bigpipe.emit('finished');
   });
 
   //
