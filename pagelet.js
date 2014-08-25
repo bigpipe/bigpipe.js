@@ -89,7 +89,10 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // The pagelet as we've been given the remove flag.
   //
-  if (data.remove) return pagelet.destroy(true);
+  if (data.remove) return pagelet.destroy({
+    assets: false,
+    remove: true
+  });
 
   //
   // If we don't have any loading placeholders we want to scan the current
@@ -743,24 +746,31 @@ Pagelet.prototype.loading = function loading(unloading) {
  * Destroy the pagelet and clean up all references so it can be re-used again in
  * the future.
  *
- * @param {Boolean} remove Remove the placeholder as well.
+ * Options:
+ *
+ * - assets: Also remove assets, true by default can be set to false to keep.
+ * - remove: Remove the DOM node after deletion.
+ *
+ * @param {Object} options Destruction information.
  * @api public
  */
-Pagelet.prototype.destroy = function destroy(remove) {
+Pagelet.prototype.destroy = function destroy(options) {
   var pagelet = this;
+
+  options = options || {};
 
   //
   // Execute any extra destroy hooks. This needs to be done before we remove any
   // elements or destroy anything as there might people subscribed to these
   // events.
   //
-  this.broadcast('destroy');
+  this.broadcast('destroy', options);
 
   //
   // Remove all the HTML from the placeholders.
   //
   if (this.placeholders) collection.each(this.placeholders, function remove(root) {
-    if (remove && root.parentNode) root.parentNode.removeChild(root);
+    if (options.remove && root.parentNode) root.parentNode.removeChild(root);
     else while (root.firstChild) root.removeChild(root.firstChild);
   });
 
@@ -786,9 +796,11 @@ Pagelet.prototype.destroy = function destroy(remove) {
   //
   // Remove the CSS and JS assets.
   //
-  collection.each(this.css.concat(this.js), function remove(url) {
-    assets.remove(url);
-  });
+  if (options.assets !== false) {
+    collection.each(this.css.concat(this.js), function remove(url) {
+      assets.remove(url);
+    });
+  }
 
   //
   // Everything has been cleaned up, release it to our free list Pagelet pool.
