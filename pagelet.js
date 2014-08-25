@@ -87,7 +87,9 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.placeholders = pagelet.$('data-pagelet', name, roots);
 
   //
-  // The pagelet as we've been given the remove flag.
+  // Destroy the pagelet as we've been given the remove flag.
+  // However do not destroy assets as unauthorized pagelets won't register
+  // assets in the first place and they might be used by other pagelets.
   //
   if (data.remove) return pagelet.destroy({
     assets: false,

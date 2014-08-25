@@ -31,6 +31,7 @@ function BigPipe(server, options) {
   options = options || {};
 
   this.expected = +options.pagelets || 0; // Pagelets that this page requires.
+  this.allowed = +options.pagelets || 0;  // Pagelets that are allowed for this page.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.options = options;                 // Reference to the used options.
   this.server = server;                   // The server address we connect to.
@@ -41,6 +42,7 @@ function BigPipe(server, options) {
   this.rendered = [];                     // List of already rendered pagelets.
   this.assets = {};                       // Asset cache.
   this.root = document.documentElement;   // The <html> element.
+  this.n = 0;                             // Rendered pagelets (only authorized).
 
   EventEmitter.call(this);
 
@@ -120,6 +122,19 @@ BigPipe.prototype.arrive = function arrive(name, data) {
     }
   }
 
+  //
+  // Keep track of how many pagelets have been fully initialized, e.g. assets
+  // loaded and all rendering logic processed. Also count destroyed pagelets as
+  // processed.
+  //
+  if (data.remove) bigpipe.allowed--;
+  bigpipe.once([name, 'loaded'].join(':'), function finished() {
+    if (++bigpipe.n === bigpipe.allowed) return bigpipe.emit('finished');
+  });
+
+  //
+  // Check if all pagelets have been received from the server.
+  //
   if (data.processed !== bigpipe.expected) return bigpipe;
 
   if (~(index = collection.index(className, 'pagelets-loading'))) {
@@ -127,7 +142,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
     root.className = className.join(' ');
   }
 
-  bigpipe.emit('loaded');
+  bigpipe.emit('received');
 
   return this;
 };
@@ -256,7 +271,8 @@ BigPipe.prototype.reserved = function reserved(event) {
  */
 BigPipe.prototype.reserved.events = {
   remove: 1,    // Pagelet has been removed.
-  loaded: 1,    // Pagelets have been loaded.
+  received: 1,  // Pagelets have been received.
+  finished: 1,  // Pagelets have been loaded, processed and rendered.
   progress: 1,  // Loaded a new Pagelet.
   create: 1     // Created a new Pagelet
 };
