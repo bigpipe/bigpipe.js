@@ -560,9 +560,10 @@ Pagelet.prototype.$ = function $(attribute, value, roots) {
  *
  * @param {String|Object} html The HTML or data that needs to be rendered.
  * @returns {Boolean} Successfully rendered a pagelet.
+ * @param {Boolean} append Append content in stead of replacing all root content.
  * @api public
  */
-Pagelet.prototype.render = function render(html) {
+Pagelet.prototype.render = function render(html, append) {
   if (!this.placeholders.length) return false;
 
   var mode = this.mode in this ? this[this.mode] : this.html
@@ -596,7 +597,7 @@ Pagelet.prototype.render = function render(html) {
   }
 
   collection.each(this.placeholders, function each(root) {
-    mode.call(this, root, html);
+    mode.call(this, root, html, append || 'body' === root.tagName.toLowerCase());
   }, this);
 
   //
@@ -615,10 +616,11 @@ Pagelet.prototype.render = function render(html) {
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
+ * @param {Boolean} append Append content in stead of replacing all root content.
  * @api public
  */
-Pagelet.prototype.html = function html(root, content) {
-  this.createElements(root, content);
+Pagelet.prototype.html = function html(root, content, append) {
+  this.createElements(root, content, append);
 };
 
 /**
@@ -626,10 +628,11 @@ Pagelet.prototype.html = function html(root, content) {
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
+ * @param {Boolean} append Append content in stead of replacing all root content.
  * @api public
  */
-Pagelet.prototype.svg = function svg(root, content) {
-  this.createElements(root, content);
+Pagelet.prototype.svg = function svg(root, content, append) {
+  this.createElements(root, content, append);
 };
 
 /**
@@ -653,9 +656,10 @@ Pagelet.prototype.getElementNS = function getElementNS(mode) {
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
+ * @param {Boolean} append Append content in stead of replacing all root content.
  * @api private
  */
-Pagelet.prototype.createElements = function createElements(root, content) {
+Pagelet.prototype.createElements = function createElements(root, content, append) {
   var fragment = document.createDocumentFragment()
     , div = document.createElementNS(this.getElementNS(this.mode), 'div')
     , borked = this.bigpipe.IEV < 7;
@@ -663,9 +667,15 @@ Pagelet.prototype.createElements = function createElements(root, content) {
   //
   // Clean out old HTML before we append our new HTML or we will get duplicate
   // DOM. Or there might have been a loading placeholder in place that needs
-  // to be removed.
+  // to be removed. If elements need to be appended only move the elements from
+  // the root to the new fragment.
   //
   while (root.firstChild) {
+    if (append) {
+      fragment.appendChild(root.firstChild);
+      continue;
+    }
+
     root.removeChild(root.firstChild);
   }
 
@@ -673,8 +683,8 @@ Pagelet.prototype.createElements = function createElements(root, content) {
 
   div.innerHTML = content;
 
-  while (div.firstChild) {
-    fragment.appendChild(div.firstChild);
+  while (div.lastChild) {
+    fragment.insertBefore(div.lastChild, fragment.firstChild);
   }
 
   root.appendChild(fragment);
