@@ -72,6 +72,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.hash = data.hash;                      // Hash of the template.
   pagelet.loader = data.loader || '';            // Loading placeholder.
   pagelet.lastclick = document.body;             // The last clicked element.
+  pagelet.append = data.append || false;         // Append content to the container.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
@@ -560,10 +561,9 @@ Pagelet.prototype.$ = function $(attribute, value, roots) {
  *
  * @param {String|Object} html The HTML or data that needs to be rendered.
  * @returns {Boolean} Successfully rendered a pagelet.
- * @param {Boolean} append Append content in stead of replacing all root content.
  * @api public
  */
-Pagelet.prototype.render = function render(html, append) {
+Pagelet.prototype.render = function render(html) {
   if (!this.placeholders.length) return false;
 
   var mode = this.mode in this ? this[this.mode] : this.html
@@ -597,7 +597,7 @@ Pagelet.prototype.render = function render(html, append) {
   }
 
   collection.each(this.placeholders, function each(root) {
-    mode.call(this, root, html, append || 'body' === root.tagName.toLowerCase());
+    mode.call(this, root, html);
   }, this);
 
   //
@@ -616,11 +616,10 @@ Pagelet.prototype.render = function render(html, append) {
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
- * @param {Boolean} append Append content in stead of replacing all root content.
  * @api public
  */
-Pagelet.prototype.html = function html(root, content, append) {
-  this.createElements(root, content, append);
+Pagelet.prototype.html = function html(root, content) {
+  this.createElements(root, content);
 };
 
 /**
@@ -628,11 +627,10 @@ Pagelet.prototype.html = function html(root, content, append) {
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
- * @param {Boolean} append Append content in stead of replacing all root content.
  * @api public
  */
-Pagelet.prototype.svg = function svg(root, content, append) {
-  this.createElements(root, content, append);
+Pagelet.prototype.svg = function svg(root, content) {
+  this.createElements(root, content);
 };
 
 /**
@@ -656,10 +654,9 @@ Pagelet.prototype.getElementNS = function getElementNS(mode) {
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
- * @param {Boolean} append Append content in stead of replacing all root content.
  * @api private
  */
-Pagelet.prototype.createElements = function createElements(root, content, append) {
+Pagelet.prototype.createElements = function createElements(root, content) {
   var fragment = document.createDocumentFragment()
     , div = document.createElementNS(this.getElementNS(this.mode), 'div')
     , borked = this.bigpipe.IEV < 7;
@@ -671,7 +668,7 @@ Pagelet.prototype.createElements = function createElements(root, content, append
   // the root to the new fragment.
   //
   while (root.firstChild) {
-    if (append) {
+    if (this.append) {
       fragment.appendChild(root.firstChild);
       continue;
     }
