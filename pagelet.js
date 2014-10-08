@@ -130,7 +130,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // Register the pagelet with the BigPipe server as an indication that we've
   // been fully loaded and ready for action.
   //
-  pagelet.orchestrate.write({ type: 'child', name: name, id: pagelet.id });
+  if (parent) pagelet.orchestrate.write({ type: 'child', name: name, id: pagelet.id });
 
   //
   // Generate the RPC methods that we're given by the server. We will make the

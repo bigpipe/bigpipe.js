@@ -319,13 +319,6 @@ BigPipe.prototype.visit = function visit(url, id) {
   this.url = url;                       // Location of the page.
 
   if (!this.orchestrate) this.connect();
-
-  this.orchestrate.write({
-    url: this.url,
-    type: 'parent',
-    id: this.id
-  });
-
   return this;
 };
 
@@ -369,7 +362,11 @@ BigPipe.prototype.connect = function connect(url, options) {
     bigpipe.visit(bigpipe.url, bigpipe.id);
 
     collection.each(bigpipe.pagelets, function each(pagelet) {
-      bigpipe.orchestrate.write({ type: 'child', name: pagelet.name, id: pagelet.id });
+      if (pagelet.parent) bigpipe.orchestrate.write({
+        type: 'child',
+        name: pagelet.name,
+        id: pagelet.id
+      });
     });
   });
 
