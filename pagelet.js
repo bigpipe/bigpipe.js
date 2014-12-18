@@ -23,11 +23,7 @@ var assets = new AsyncAsset();
  * @api public
  */
 function Pagelet(bigpipe) {
-  EventEmitter.call(this);
-
-  this.orchestrate = bigpipe.orchestrate;
-  this.bigpipe = this.pipe = bigpipe;
-  this.stream = bigpipe.stream;
+  if (!(this instanceof Pagelet)) return new Pagelet(bigpipe);
 
   //
   // Create one single Fortress instance that orchestrates all iframe based client
@@ -35,6 +31,7 @@ function Pagelet(bigpipe) {
   // order to prevent leaking.
   //
   this.sandbox = sandbox = sandbox || new Fortress();
+  this.bigpipe = bigpipe;
 }
 
 //
@@ -66,12 +63,10 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.run = data.run;                        // Pagelet client code.
   pagelet.data = data.data;                      // All the template data.
   pagelet.mode = data.mode;                      // Fragment rendering mode.
-  pagelet.streaming = !!data.streaming;          // Are we streaming POST/GET.
   pagelet.container = pagelet.sandbox.create();  // Create an application sandbox.
   pagelet.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
   pagelet.hash = data.hash;                      // Hash of the template.
   pagelet.loader = data.loader || '';            // Loading placeholder.
-  pagelet.lastclick = document.body;             // The last clicked element.
   pagelet.append = data.append || false;         // Append content to the container.
 
   //
@@ -117,49 +112,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // Attach event listeners for FORM posts so we can intercept those.
   //
   pagelet.listen();
-
-  //
-  // Create a real-time Substream over which we can communicate over without.
-  //
-  pagelet.substream = pagelet.stream.substream(pagelet.name);
-  pagelet.substream.on('data', function data(packet) {
-    pagelet.processor(packet);
-  });
-
-  //
-  // Register the pagelet with the BigPipe server as an indication that we've
-  // been fully loaded and ready for action.
-  //
-  if (parent) pagelet.orchestrate.write({ type: 'child', name: name, id: pagelet.id });
-
-  //
-  // Generate the RPC methods that we're given by the server. We will make the
-  // assumption that:
-  //
-  // - A callback function is always given as last argument.
-  // - The function should return it self in order to chain.
-  // - The function given supports and uses error first callback styles.
-  // - Does not override the build-in prototypes of the Pagelet.
-  //
-  collection.each(pagelet.rpc, function rpc(method) {
-    var counter = 0;
-
-    //
-    // Never override build-in methods as this WILL affect the way a Pagelet is
-    // working.
-    //
-    if (method in Pagelet.prototype) return;
-
-    pagelet[method] = function rpcfactory() {
-      var args = Array.prototype.slice.call(arguments, 0)
-        , id = method +'#'+ (++counter);
-
-      pagelet.once('rpc:'+ id, args.pop());
-      pagelet.substream.write({ method: method, type: 'rpc', args: args, id: id });
-
-      return pagelet;
-    };
-  });
 
   //
   // Should be called before we create `rpc` hooks.
@@ -214,8 +166,8 @@ Pagelet.prototype.pagelet = function pagelet(name) {
 };
 
 /**
- * Intercept form posts and stream them over our substream instead to prevent
- * full page reload.
+ * Intercept form posts and assign the correct pagelet id so we know which
+ * server component should resolve it full page reload.
  *
  * @returns {Pagelet}
  * @api private
@@ -232,60 +184,21 @@ Pagelet.prototype.listen = function listen() {
   function submission(evt) {
     evt = evt || window.event;
 
-    var form = evt.target || evt.srcElement;
+    var form = evt.target || evt.srcElement
+      , action = form.getAttribute('action')
+      , _pagelet = '_pagelet='+ pagelet.name;
 
-    //
-    // In previous versions we had and `evt.preventDefault()` so we could make
-    // changes to the form and re-submit it. But there's a big problem with that
-    // and that is that in FireFox it loses the reference to the button that
-    // triggered the submit. If causes buttons that had a name and value:
-    //
-    // ```html
-    // <button name="key" value="value" type="submit">submit</button>
-    // ```
-    //
-    // To be missing from the POST or GET. We managed to go around it by not
-    // simply preventing the default action. If this still does not not work we
-    // need to transform the form URLs once the pagelets are loaded.
-    //
-    if (
-         ('getAttribute' in form && form.getAttribute('data-pagelet-async') === 'false')
-      || !pagelet.streaming
-    ) {
-      var action = form.getAttribute('action')
-        , _pagelet = '_pagelet='+ pagelet.name;
-
-      if (!~action.indexOf(_pagelet)) {
-        form.setAttribute('action', action +(
-          ~action.indexOf('?') ? '&' : '?'
-        )+ _pagelet);
-      }
-
-      return;
+    if (!~action.indexOf(_pagelet)) {
+      form.setAttribute('action', action +(
+        ~action.indexOf('?') ? '&' : '?'
+      )+ _pagelet);
     }
 
-    //
-    // As we're submitting the form over our real-time connection and gather the
-    // data our self we can safely prevent default.
-    //
-    evt.preventDefault();
-    pagelet.submit(form, pagelet.activeElement(evt));
-  }
-
-  /**
-   * We need cross browser way of getting the last clicked active element.
-   * `document.activeElement` seems to return `document.body` after you've
-   * clicked a button. So the only way we can get access to a button or input
-   * button is to listen to click events and hope that they emitted AFTER
-   */
-  function active(evt) {
-    evt = evt || window.event;
-    pagelet.lastclick = evt.target || evt.srcElement;
+    return;
   }
 
   collection.each(this.placeholders, function each(root) {
     root.addEventListener('submit', submission, false);
-    root.addEventListener('click', active, false);
   });
 
   //
@@ -296,139 +209,8 @@ Pagelet.prototype.listen = function listen() {
   return this.once('destroy', function destroy() {
     collection.each(pagelet.placeholders, function each(root) {
       root.removeEventListener('submit', submission, false);
-      root.removeEventListener('click', active, false);
     });
   });
-};
-
-/**
- * Submit the contents of a <form> to the server.
- *
- * @param {FormElement} form Form that needs to be submitted.
- * @param {Element} active Element that initated the submit.
- * @returns {Object} The data that is ported to the server.
- * @api public
- */
-Pagelet.prototype.submit = function submit(form, active) {
-  var elements = form.elements
-    , data = {}
-    , element
-    , i;
-
-  active = active || this.activeElement();
-
-  //
-  // Story time children! Once upon a time there was a developer, this
-  // developer created a form with a lot of submit buttons. The developer
-  // knew that when a user clicked on one of those buttons the value="" and
-  // name="" attributes would get send to the server so he could see which
-  // button people had clicked. He implemented this and all was good. Until
-  // someone captured the `submit` event in the browser which didn't have
-  // a reference to the clicked element. This someone found out that the
-  // `document.activeElement` pointed to the last clicked element and used
-  // that to restore the same functionality and the day was saved again.
-  //
-  // There are valuable lessons to be learned here. Submit buttons are the
-  // suck. PERIOD.
-  //
-  if (active && active.name) {
-    data[active.name] = active.value;
-  }
-
-  for (i = 0; i < elements.length; i++) {
-    element = elements[i];
-
-    if (
-         element.name
-      && !(element.name in data)
-      && element.disabled === false
-      && /^(?:input|select|textarea|keygen)/i.test(element.nodeName)
-      && !/^(?:submit|button|image|reset|file)$/i.test(element.type)
-      && (element.checked || !/^(?:checkbox|radio)$/i.test(element.type))
-    ) data[element.name] = val(element);
-  }
-
-  //
-  // Now that we have a JSON object, we can just send it over our real-time
-  // connection and wait for a page refresh.
-  //
-  this.broadcast('submit', (form.method || 'GET').toLowerCase(), data);
-  this.substream.write({
-    type: (form.method || 'GET').toLowerCase(),
-    body: data
-  });
-  this.loading();
-
-  return data;
-};
-
-/**
- * Get the last clicked and therefor active element from the page.
- *
- * @param {Event} evt Optional event to search.
- * @returns {Element}
- * @api private
- */
-Pagelet.prototype.activeElement = function activeElement(evt) {
-  return (evt || {}).explicitOriginalTarget || this.lastclick;
-};
-
-/**
- * Get the pagelet contents once again.
- *
- * @returns {Pagelet}
- * @api public
- */
-Pagelet.prototype.get = function get() {
-  this.substream.write({ type: 'get' });
-
-  return this.loading();
-};
-
-/**
- * Process the incoming messages from our SubStream.
- *
- * @param {Object} packet The decoded message.
- * @returns {Boolean}
- * @api private
- */
-Pagelet.prototype.processor = function processor(packet) {
-  if ('object' !== typeof packet) return false;
-
-  switch (packet.type) {
-    case 'rpc':
-      EventEmitter.prototype.emit.apply(this, [
-        'rpc:'+ packet.id
-      ].concat(packet.args || []));
-    break;
-
-    case 'event':
-      if (packet.args && packet.args.length && !this.reserved(packet.args[0])) {
-        EventEmitter.prototype.emit.apply(this, packet.args);
-      }
-    break;
-
-    case 'fragment':
-      this.loading(true);
-      this.render(packet.frag.view);
-    break;
-
-    case 'err':
-      var err = new Error(packet.err.message || 'RPC error');
-
-      if (packet.err.stack) err.stack = packet.err.stack;
-      this.render(err);
-    break;
-
-    case 'redirect':
-      window.location.href = packet.url;
-    break;
-
-    default:
-      return false;
-  }
-
-  return true;
 };
 
 /**
@@ -445,22 +227,6 @@ Pagelet.prototype.initialize = function initialise() {
   //
   if (!this.code) return;
   this.sandbox(this.prepare(this.code));
-};
-
-/**
- * Emit events on the server side Pagelet instance.
- *
- * @param {String} event Name of the event you wish to emit on the server.
- * @returns {Boolean}
- * @api public
- */
-Pagelet.prototype.emit = function emit(event) {
-  this.substream.write({
-    args: Array.prototype.slice.call(arguments, 0),
-    type: 'emit'
-  });
-
-  return true;
 };
 
 /**
@@ -794,12 +560,7 @@ Pagelet.prototype.destroy = function destroy(options) {
   // Remove the sandboxing and prevent element leaking by deferencing them.
   //
   if (this.container) sandbox.kill(this.container.id);
-  this.placeholders = this.container = this.lastclick = null;
-
-  //
-  // Announce the destruction and remove it.
-  //
-  if (this.substream) this.substream.end();
+  this.placeholders = this.container = null;
 
   //
   // Remove the CSS and JS assets.
