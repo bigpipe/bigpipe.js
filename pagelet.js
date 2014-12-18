@@ -57,7 +57,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   pagelet.id = data.id;                          // ID of the pagelet.
   pagelet.name = name;                           // Name of the pagelet.
-  pagelet.rpc = collection.array(data.rpc);      // Pagelet RPC methods.
   pagelet.css = collection.array(data.css);      // CSS for the Page.
   pagelet.js = collection.array(data.js);        // Dependencies for the page.
   pagelet.run = data.run;                        // Pagelet client code.
@@ -112,10 +111,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // Attach event listeners for FORM posts so we can intercept those.
   //
   pagelet.listen();
-
-  //
-  // Should be called before we create `rpc` hooks.
-  //
   pagelet.broadcast('configured', data);
 
   async.each(this.css.concat(this.js), function download(url, next) {
@@ -270,8 +265,7 @@ Pagelet.prototype.broadcast = function broadcast(event) {
  * @api public
  */
 Pagelet.prototype.reserved = function reserved(event) {
-  return /^rpc:\d+/.test(event)
-  || event in this.reserved.events;
+  return event in this.reserved.events;
 };
 
 /**
@@ -546,14 +540,6 @@ Pagelet.prototype.destroy = function destroy(options) {
   if (this.placeholders) collection.each(this.placeholders, function remove(root) {
     if (options.remove && root.parentNode) root.parentNode.removeChild(root);
     else while (root.firstChild) root.removeChild(root.firstChild);
-  });
-
-  //
-  // Remove the added RPC handlers, make sure we don't delete prototypes.
-  //
-  if (this.rpc.length) collection.each(this.rpc, function nuke(method) {
-    if (method in Pagelet.prototype) return;
-    delete pagelet[method];
   });
 
   //
