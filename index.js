@@ -43,7 +43,6 @@ function BigPipe(server, options) {
   EventEmitter.call(this);
 
   this.configure(options);
-  this.visit(location.pathname, options.id);
 }
 
 //
