@@ -305,6 +305,40 @@ BigPipe.prototype.free = function free(pagelet) {
 };
 
 /**
+ * Check if we've probed the client for gzip support yet.
+ *
+ * @param {String} version Version number of the zipline we support.
+ * @returns {Boolean}
+ * @api public
+ */
+BigPipe.prototype.ziplined = function zipline(version) {
+  if (~document.cookie.indexOf('zipline='+ version)) return true;
+
+  try { if (sessionStorage.getItem('zipline') === version) return true; }
+  catch (e) {}
+  try { if (localStorage.getItem('zipline') === version) return true; }
+  catch (e) {}
+
+  var bigpipe = document.createElement('bigpipe')
+    , iframe = document.createElement('iframe')
+    , doc;
+
+  bigpipe.style.display = 'none';
+  iframe.frameBorder = 0;
+  bigpipe.appendChild(iframe);
+  this.root.appendChild(bigpipe);
+
+  doc = iframe.contentWindow.document;
+  doc.open().write('<body onload="' +
+  'var d = document;d.getElementsByTagName(\'head\')[0].' +
+  'appendChild(d.createElement(\'script\')).src' +
+  '=\'\/zipline.js\'">');
+  doc.close();
+
+  return false;
+};
+
+/**
  * Completely destroy the BigPipe instance.
  *
  * @type {Function}
