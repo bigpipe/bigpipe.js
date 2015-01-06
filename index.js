@@ -2,7 +2,8 @@
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
-  , Pagelet = require('./pagelet');
+  , Pagelet = require('./pagelet')
+  , destroy = require('demolish');
 
 /**
  * BigPipe is the client-side library which is automatically added to pages which
@@ -302,6 +303,24 @@ BigPipe.prototype.free = function free(pagelet) {
 
   return false;
 };
+
+/**
+ * Completely destroy the BigPipe instance.
+ *
+ * @type {Function}
+ * @returns {Boolean}
+ * @api public
+ */
+BigPipe.prototype.destroy = destroy('options, templates, pagelets, freelist, rendered, assets, root', {
+  before: function before() {
+    var bigpipe = this;
+
+    collection.each(bigpipe.pagelets, function remove(pagelet) {
+      bigpipe.remove(pagelet.name);
+    });
+  },
+  after: 'removeAllListeners'
+});
 
 //
 // Expose the BigPipe client library.
