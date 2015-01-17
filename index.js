@@ -131,7 +131,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   //
   // Check if all pagelets have been received from the server.
   //
-  if (data.processed !== bigpipe.expected) return bigpipe;
+  if (data.remaining) return bigpipe;
 
   if (~(index = collection.index(className, 'pagelets-loading'))) {
     className.splice(index, 1);
@@ -157,7 +157,7 @@ BigPipe.prototype.create = function create(name, data, roots) {
 
   var bigpipe = this
     , pagelet = bigpipe.alloc()
-    , nr = data.processed || 0;
+    , nr = data.remaining;
 
   bigpipe.pagelets.push(pagelet);
   pagelet.configure(name, data, roots);
@@ -165,8 +165,10 @@ BigPipe.prototype.create = function create(name, data, roots) {
   //
   // A new pagelet has been loaded, emit a progress event.
   //
-  bigpipe.emit('progress', Math.round((nr / bigpipe.expected) * 100), nr, pagelet);
   bigpipe.emit('create', pagelet);
+  bigpipe.emit('progress', Math.round(
+    ((bigpipe.expected - nr) / bigpipe.expected) * 100
+  ), nr, pagelet);
 };
 
 /**
