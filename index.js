@@ -1,14 +1,13 @@
-/*globals Primus */
 'use strict';
 
 var EventEmitter = require('eventemitter3')
   , collection = require('./collection')
-  , Pagelet = require('./pagelet');
+  , Pagelet = require('./pagelet')
+  , destroy = require('demolish');
 
 /**
  * BigPipe is the client-side library which is automatically added to pages which
- * uses the BigPipe framework. It assumes that this library is bundled with
- * a Primus instance which uses the `substream` plugin.
+ * uses the BigPipe framework.
  *
  * Options:
  *
@@ -36,7 +35,6 @@ function BigPipe(server, options) {
   this.options = options;                 // Reference to the used options.
   this.server = server;                   // The server address we connect to.
   this.templates = {};                    // Collection of templates.
-  this.stream = null;                     // Reference to the connected Primus socket.
   this.pagelets = [];                     // Collection of different pagelets.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.rendered = [];                     // List of already rendered pagelets.
@@ -46,7 +44,6 @@ function BigPipe(server, options) {
   EventEmitter.call(this);
 
   this.configure(options);
-  this.visit(location.pathname, options.id);
 }
 
 //
@@ -308,81 +305,58 @@ BigPipe.prototype.free = function free(pagelet) {
 };
 
 /**
- * Register a new URL that we've joined.
+ * Check if we've probed the client for gzip support yet.
  *
- * @param {String} url The current URL.
- * @param {String} id The id of the Page that rendered this page.
+ * @param {String} version Version number of the zipline we support.
+ * @returns {Boolean}
  * @api public
  */
-BigPipe.prototype.visit = function visit(url, id) {
-  this.id = id || this.id;              // Unique ID of the page.
-  this.url = url;                       // Location of the page.
+BigPipe.prototype.ziplined = function zipline(version) {
+  if (~document.cookie.indexOf('zipline='+ version)) return true;
 
-  if (!this.orchestrate) this.connect();
+  try { if (sessionStorage.getItem('zipline') === version) return true; }
+  catch (e) {}
+  try { if (localStorage.getItem('zipline') === version) return true; }
+  catch (e) {}
 
-  this.orchestrate.write({
-    url: this.url,
-    type: 'page',
-    id: this.id
-  });
+  var bigpipe = document.createElement('bigpipe')
+    , iframe = document.createElement('iframe')
+    , doc;
 
-  return this;
+  bigpipe.style.display = 'none';
+  iframe.frameBorder = 0;
+  bigpipe.appendChild(iframe);
+  this.root.appendChild(bigpipe);
+
+  doc = iframe.contentWindow.document;
+  doc.open().write('<body onload="' +
+  'var d = document;d.getElementsByTagName(\'head\')[0].' +
+  'appendChild(d.createElement(\'script\')).src' +
+  '=\'\/zipline.js\'">');
+  doc.close();
+
+  return false;
 };
 
 /**
- * Setup a real-time connection to the pagelet server.
+ * Completely destroy the BigPipe instance.
  *
- * @param {String} url The server address.
- * @param {Object} options The Primus configuration.
- * @returns {BigPipe}
- * @api private
+ * @type {Function}
+ * @returns {Boolean}
+ * @api public
  */
-BigPipe.prototype.connect = function connect(url, options) {
-  options = options || {};
-  options.manual = true;
+BigPipe.prototype.destroy = destroy('options, templates, pagelets, freelist, rendered, assets, root', {
+  before: function before() {
+    var bigpipe = this;
 
-  var primus = this.stream = new Primus(url, options)
-    , bigpipe = this;
-
-  this.orchestrate = primus.substream('pipe:orchestrate');
-
-  /**
-   * Upgrade the connection with URL information about the current page.
-   *
-   * @param {Object} options The connection options.
-   * @api private
-   */
-  primus.on('outgoing::url', function url(options) {
-    var querystring = primus.querystring(options.query || '');
-
-    querystring._bp_pid = bigpipe.id;
-    querystring._bp_url = bigpipe.url;
-
-    options.query = primus.querystringify(querystring);
-  });
-
-  //
-  // We need to re-register our page and pagelet on the server. We assume that
-  // the server was restarted and caused the reconnect.
-  //
-  primus.on('reconnected', function reconnected() {
-    bigpipe.visit(bigpipe.url, bigpipe.id);
-
-    collection.each(bigpipe.pagelets, function each(pagelet) {
-      bigpipe.orchestrate.write({ type: 'pagelet', name: pagelet.name, id: pagelet.id });
+    collection.each(bigpipe.pagelets, function remove(pagelet) {
+      bigpipe.remove(pagelet.name);
     });
-  });
-
-  //
-  // We forced manual opening of the connection so we can listen to the correct
-  // event `outgoing::url` as it will be executed directly after the `.open` call.
-  //
-  primus.open();
-
-  return this;
-};
+  },
+  after: 'removeAllListeners'
+});
 
 //
-// Expose the bigpipe
+// Expose the BigPipe client library.
 //
 module.exports = BigPipe;

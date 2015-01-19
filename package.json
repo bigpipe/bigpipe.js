@@ -21,6 +21,7 @@
   ],
   "dependencies": {
     "async-asset": "0.0.x",
+    "demolish": "1.0.x",
     "eventemitter3": "0.1.x",
     "fortress": "0.0.x",
     "parsifal": "0.0.x"
