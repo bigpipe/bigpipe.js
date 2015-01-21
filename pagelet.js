@@ -110,7 +110,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // Attach event listeners for FORM posts so we can intercept those.
   //
-  pagelet.listen();
   pagelet.broadcast('configured', data);
 
   async.each(this.css.concat(this.js), function download(url, next) {
@@ -128,7 +127,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     //
     if (parent) parent.on('render', function render() {
       pagelet.placeholders = pagelet.$('data-pagelet', pagelet.name, parent.placeholders);
-      pagelet.listen();
       pagelet.render(pagelet.parse() || pagelet.data);
     });
 
@@ -158,54 +156,6 @@ Pagelet.prototype.template = function template(type) {
  */
 Pagelet.prototype.pagelet = function pagelet(name) {
   return this.bigpipe.get(name, this.name);
-};
-
-/**
- * Intercept form posts and assign the correct pagelet id so we know which
- * server component should resolve it full page reload.
- *
- * @returns {Pagelet}
- * @api private
- */
-Pagelet.prototype.listen = function listen() {
-  var pagelet = this;
-
-  /**
-   * Handles the actual form submission.
-   *
-   * @param {Event} evt The submit event.
-   * @api private
-   */
-  function submission(evt) {
-    evt = evt || window.event;
-
-    var form = evt.target || evt.srcElement
-      , action = form.getAttribute('action')
-      , _pagelet = '_pagelet='+ pagelet.name;
-
-    if (!~action.indexOf(_pagelet)) {
-      form.setAttribute('action', action +(
-        ~action.indexOf('?') ? '&' : '?'
-      )+ _pagelet);
-    }
-
-    return;
-  }
-
-  collection.each(this.placeholders, function each(root) {
-    root.addEventListener('submit', submission, false);
-  });
-
-  //
-  // When the pagelet is removed we want to remove our listeners again. To
-  // prevent memory leaks as well possible duplicate listeners when a pagelet is
-  // loaded in the same placeholder (in case of a full reload).
-  //
-  return this.once('destroy', function destroy() {
-    collection.each(pagelet.placeholders, function each(root) {
-      root.removeEventListener('submit', submission, false);
-    });
-  });
 };
 
 /**
