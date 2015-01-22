@@ -39,6 +39,7 @@ function BigPipe(server, options) {
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.rendered = [];                     // List of already rendered pagelets.
   this.assets = {};                       // Asset cache.
+  this.plugins = {};                      // Plugin storage.
   this.root = document.documentElement;   // The <html> element.
 
   EventEmitter.call(this);
@@ -74,6 +75,13 @@ BigPipe.prototype.configure = function configure(options) {
   }
 
   root.className = className.join(' ');
+
+  //
+  // Process the potential plugins.
+  //
+  for (var plugin in this.plugins) {
+    this.plugins[plugin].call(this, this, options);
+  }
 
   return this;
 };
