@@ -39,7 +39,6 @@ function BigPipe(server, options) {
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.rendered = [];                     // List of already rendered pagelets.
   this.assets = {};                       // Asset cache.
-  this.plugins = {};                      // Plugin storage.
   this.root = document.documentElement;   // The <html> element.
 
   EventEmitter.call(this);
@@ -53,6 +52,14 @@ function BigPipe(server, options) {
 //
 BigPipe.prototype = new EventEmitter();
 BigPipe.prototype.constructor = BigPipe;
+
+/**
+ * The BigPipe plugins will contain all our plugins definitions.
+ *
+ * @type {Object}
+ * @private
+ */
+BigPipe.prototype.plugins = {};
 
 /**
  * Configure the BigPipe.
