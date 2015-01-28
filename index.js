@@ -118,6 +118,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   var index
     , bigpipe = this
     , root = bigpipe.root
+    , parent = data.parent
     , rendered = bigpipe.rendered
     , className = (root.className || '').split(' ');
 
@@ -125,9 +126,9 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // Create child pagelet after parent has finished rendering.
   //
   if (!bigpipe.has(name)) {
-    if (data.parent && !~collection.index(bigpipe.rendered, data.parent)) {
-      bigpipe.once(data.parent +':render', function render() {
-        bigpipe.create(name, data, bigpipe.get(data.parent).placeholders);
+    if (parent !== 'bootstrap' && !~collection.index(bigpipe.rendered, parent)) {
+      bigpipe.once(parent +':render', function render() {
+        bigpipe.create(name, data, bigpipe.get(parent).placeholders);
       });
     } else {
       bigpipe.create(name, data);
