@@ -64,7 +64,8 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.mode = data.mode;                      // Fragment rendering mode.
   pagelet.container = pagelet.sandbox.create();  // Create an application sandbox.
   pagelet.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
-  pagelet.hash = data.hash;                      // Hash of the template.
+  pagelet.error = data.error;                    // Error template.
+  pagelet.client = data.client;                  // Client template.
   pagelet.loader = data.loader || '';            // Loading placeholder.
   pagelet.append = data.append || false;         // Append content to the container.
 
@@ -72,9 +73,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   // This pagelet was actually part of a parent pagelet, so set a reference to
   // the parent pagelet that was loaded.
   //
-  var parent = pagelet.parent = data.parent
-    ? bigpipe.get(data.parent)
-    : undef;
+  var parent = pagelet.parent = data.parent ? bigpipe.get(data.parent) : void 0;
 
   //
   // Locate all the placeholders for this given pagelet.
@@ -107,11 +106,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     return !pagelet.loader;
   });
 
-  //
-  // Attach event listeners for FORM posts so we can intercept those.
-  //
-  pagelet.broadcast('configured', data);
-
   async.each(this.css.concat(this.js), function download(url, next) {
     assets.add(url, next);
   }, function done(err) {
@@ -131,7 +125,9 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
     });
 
     pagelet.initialize();
-  }, { context: this.bigpipe, timeout: this.timeout });
+  }, { context: bigpipe, timeout: this.timeout });
+
+  pagelet.broadcast('configured', data);
 };
 
 /**
@@ -145,11 +141,25 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
 Pagelet.prototype.template = function template(type) {
   type = type || 'client';
 
-  return this.bigpipe.templates[this.hash[type]];
+  return this.bigpipe.templates[type +'@'+ this.id];
 };
 
 /**
- * Get a pagelet loaded on the page. If we have
+ * Load the required template by type. Either client or error.
+ *
+ * @param {String} type Client or Error
+ * @param {Function} next Completion callback.
+ * @api private
+ */
+Pagelet.prototype.load = function load(type, next) {
+  type = ~['client', 'error'].indexOf(type) ? this[type] : this.client;
+  if (!type) return next(new Error('Missing client-side template'));
+
+  assets.add(type, next);
+};
+
+/**
+ * Get a pagelet loaded on the page.
  *
  * @param {String} name Name of the pagelet we need.
  * @returns {Pagelet|Undefined}
