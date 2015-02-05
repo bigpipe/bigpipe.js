@@ -416,7 +416,7 @@ Pagelet.prototype.createElements = function createElements(root, content) {
  * @api private
  */
 Pagelet.prototype.parse = function parse() {
-  var node = this.$('data-pagelet-fragment', this.name)[0]
+  var node = this.$('data-pagelet-fragment', this.id)[0]
     , comment;
 
   //
