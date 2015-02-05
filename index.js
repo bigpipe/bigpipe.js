@@ -38,6 +38,7 @@ function BigPipe(server, options) {
   this.pagelets = [];                     // Collection of different pagelets.
   this.freelist = [];                     // Collection of unused Pagelet instances.
   this.rendered = [];                     // List of already rendered pagelets.
+  this.progress = 0;                      // Percentage loaded.
   this.assets = {};                       // Asset cache.
   this.root = document.documentElement;   // The <html> element.
 
@@ -119,6 +120,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
     , bigpipe = this
     , root = bigpipe.root
     , parent = data.parent
+    , remaining = data.remaining
     , rendered = bigpipe.rendered
     , className = (root.className || '').split(' ');
 
@@ -144,6 +146,13 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   else bigpipe.once(name +':render', function finished() {
     if (rendered.length === bigpipe.allowed) return bigpipe.broadcast('finished');
   });
+
+  //
+  // Emit progress information about the amount of pagelet's that we've
+  // received.
+  //
+  bigpipe.progress = Math.round(((bigpipe.expected - remaining) / bigpipe.expected) * 100);
+  bigpipe.emit('progress', bigpipe.progress, remaining);
 
   //
   // Check if all pagelets have been received from the server.
@@ -173,8 +182,7 @@ BigPipe.prototype.create = function create(name, data, roots) {
   data = data || {};
 
   var bigpipe = this
-    , pagelet = bigpipe.alloc()
-    , nr = data.remaining;
+    , pagelet = bigpipe.alloc();
 
   bigpipe.pagelets.push(pagelet);
   pagelet.configure(name, data, roots);
@@ -183,9 +191,6 @@ BigPipe.prototype.create = function create(name, data, roots) {
   // A new pagelet has been loaded, emit a progress event.
   //
   bigpipe.emit('create', pagelet);
-  bigpipe.emit('progress', Math.round(
-    ((bigpipe.expected - nr) / bigpipe.expected) * 100
-  ), nr, pagelet);
 };
 
 /**
