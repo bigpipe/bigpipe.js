@@ -1,4 +1,3 @@
-/*globals */
 'use strict';
 
 var EventEmitter = require('eventemitter3')
