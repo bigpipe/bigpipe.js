@@ -24,16 +24,16 @@
     "demolish": "1.0.x",
     "eventemitter3": "0.1.x",
     "fortress": "0.0.x",
+    "one-time": "0.0.x",
     "parsifal": "0.0.x"
   },
   "pre-commit": [
-    "compile",
+    "prepublish",
     "test"
   ],
   "devDependencies": {
-    "assume": "0.0.x",
-    "browserify": "5.9.x",
-    "illuminati": "0.0.x"
+    "assume": "1.1.x",
+    "browserify": "9.0.x"
   },
   "author": "Arnout Kazemier",
   "license": "MIT",
