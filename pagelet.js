@@ -6,6 +6,7 @@ var EventEmitter = require('eventemitter3')
   , Fortress = require('fortress')
   , async = require('./async')
   , val = require('parsifal')
+  , one = require('one-time')
   , sandbox
   , undef;
 
@@ -24,6 +25,8 @@ var assets = new AsyncAsset();
 function Pagelet(bigpipe) {
   if (!(this instanceof Pagelet)) return new Pagelet(bigpipe);
 
+  var self = this;
+
   //
   // Create one single Fortress instance that orchestrates all iframe based client
   // code. This sandbox variable should never be exposed to the outside world in
@@ -31,6 +34,14 @@ function Pagelet(bigpipe) {
   //
   this.sandbox = sandbox = sandbox || new Fortress();
   this.bigpipe = bigpipe;
+
+  //
+  // Add an initialized method which is __always__ called when the pagelet is
+  // either destroyed directly, errored or loaded.
+  //
+  this.initialized = one(function initialized() {
+    self.broadcast('initialized');
+  });
 }
 
 //
@@ -108,7 +119,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   async.each(this.css.concat(this.js), function download(url, next) {
     assets.add(url, next);
   }, function done(err) {
-    if (err) return pagelet.broadcast('error', err);
+    if (err) return pagelet.initialized(), pagelet.broadcast('error', err);
 
     pagelet.broadcast('loaded');
     pagelet.render(pagelet.parse());
@@ -174,6 +185,7 @@ Pagelet.prototype.pagelet = function pagelet(name) {
  */
 Pagelet.prototype.initialize = function initialise() {
   this.broadcast('initialize');
+  this.initialized();
 
   //
   // Only load the client code in a sandbox when it exists. There no point in
@@ -491,6 +503,7 @@ Pagelet.prototype.destroy = function destroy(options) {
   // elements or destroy anything as there might people subscribed to these
   // events.
   //
+  this.initialized();
   this.broadcast('destroy', options);
 
   //

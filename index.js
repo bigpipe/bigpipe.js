@@ -78,6 +78,7 @@ BigPipe.prototype.configure = function configure(options) {
   // classNames back to the root element.
   //
   className = className.length ? className.split(' ') : [];
+
   if (!~className.indexOf('pagelets-loading')) {
     className.push('pagelets-loading');
   }
@@ -124,6 +125,9 @@ BigPipe.prototype.arrive = function arrive(name, data) {
     , rendered = bigpipe.rendered
     , className = (root.className || '').split(' ');
 
+  bigpipe.progress = Math.round(((bigpipe.expected - remaining) / bigpipe.expected) * 100);
+  bigpipe.emit('arrive', name, data);
+
   //
   // Create child pagelet after parent has finished rendering.
   //
@@ -151,14 +155,12 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // Emit progress information about the amount of pagelet's that we've
   // received.
   //
-  bigpipe.progress = Math.round(((bigpipe.expected - remaining) / bigpipe.expected) * 100);
   bigpipe.emit('progress', bigpipe.progress, remaining);
 
   //
   // Check if all pagelets have been received from the server.
   //
-  if (data.remaining) return bigpipe;
-
+  if (remaining) return bigpipe;
   if (~(index = collection.index(className, 'pagelets-loading'))) {
     className.splice(index, 1);
     root.className = className.join(' ');
