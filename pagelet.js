@@ -54,19 +54,19 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   //
   // Pagelet identification.
   //
-  pagelet.id = data.id;                          // ID of the pagelet.
-  pagelet.name = name;                           // Name of the pagelet.
-  pagelet.css = collection.array(data.css);      // CSS for the Page.
-  pagelet.js = collection.array(data.js);        // Dependencies for the page.
-  pagelet.run = data.run;                        // Pagelet client code.
-  pagelet.data = data.data;                      // All the template data.
-  pagelet.mode = data.mode;                      // Fragment rendering mode.
   pagelet.container = pagelet.sandbox.create();  // Create an application sandbox.
   pagelet.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
-  pagelet.error = data.error;                    // Error template.
-  pagelet.client = data.client;                  // Client template.
-  pagelet.loader = data.loader || '';            // Loading placeholder.
+  pagelet.css = collection.array(data.css);      // CSS for the Page.
+  pagelet.js = collection.array(data.js);        // Dependencies for the page.
   pagelet.append = data.append || false;         // Append content to the container.
+  pagelet.loader = data.loader || '';            // Loading placeholder.
+  pagelet.client = data.client;                  // Client template.
+  pagelet.error = data.error;                    // Error template.
+  pagelet.data = data.data;                      // All the template data.
+  pagelet.mode = data.mode;                      // Fragment rendering mode.
+  pagelet.run = data.run;                        // Pagelet client code.
+  pagelet.id = data.id;                          // ID of the pagelet.
+  pagelet.name = name;                           // Name of the pagelet.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
