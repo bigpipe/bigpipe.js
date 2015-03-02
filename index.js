@@ -32,6 +32,7 @@ function BigPipe(server, options) {
   this.expected = +options.pagelets || 0; // Pagelets that this page requires.
   this.allowed = +options.pagelets || 0;  // Pagelets that are allowed for this page.
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
+  this.readyState = BigPipe.LOADING;      // Current readyState.
   this.options = options;                 // Reference to the used options.
   this.server = server;                   // The server address we connect to.
   this.templates = {};                    // Collection of templates.
@@ -54,6 +55,13 @@ function BigPipe(server, options) {
 BigPipe.prototype = new EventEmitter();
 BigPipe.prototype.constructor = BigPipe;
 
+//
+// The various of readyStates that our class can be in.
+//
+BigPipe.LOADING     = 1;    // Still loading pagelets.
+BigPipe.INTERACTIVE = 2;    // All pagelets received, you can safely modify.
+BigPipe.COMPLETE    = 3;    // All assets and pagelets loaded.
+
 /**
  * The BigPipe plugins will contain all our plugins definitions.
  *
@@ -70,6 +78,8 @@ BigPipe.prototype.plugins = {};
  * @api private
  */
 BigPipe.prototype.configure = function configure(options) {
+  var bigpipe = this;
+
   //
   // Process the potential plugins.
   //
@@ -77,7 +87,46 @@ BigPipe.prototype.configure = function configure(options) {
     this.plugins[plugin].call(this, this, options);
   }
 
+  //
+  // Setup our completion handler.
+  //
+  var remaining = this.expected;
+  bigpipe.on('arrive', function arrived(name) {
+    bigpipe.once(name +':initialized', function initialize() {
+      if (!--remaining) {
+        bigpipe.change({ readyState: BigPipe.COMPLETE });
+      }
+    });
+  });
+
   return this;
+};
+
+/**
+ * Process a change in BigPipe.
+ *
+ * @param {Object} changed Data that is changed.
+ * @returns {BigPipe}
+ * @api private
+ */
+BigPipe.prototype.change = function change(changed) {
+  var currently, previously
+    , bigpipe = this
+    , key;
+
+  if (!changed) return bigpipe;
+
+  for (key in changed) {
+    if (key in bigpipe && bigpipe[key] !== changed[key]) {
+      currently = changed[key];
+      previously = bigpipe[key];
+
+      bigpipe[key] = currently;
+      bigpipe.emit(key.toLowerCase() +'change', currently, previously);
+    }
+  }
+
+  return bigpipe;
 };
 
 /**
@@ -144,6 +193,8 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // Check if all pagelets have been received from the server.
   //
   if (remaining) return bigpipe;
+
+  bigpipe.change({ readyState: BigPipe.INTERACTIVE });
   bigpipe.emit('received');
 
   return this;
