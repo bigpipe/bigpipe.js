@@ -71,6 +71,15 @@ BigPipe.COMPLETE    = 3;    // All assets and pagelets loaded.
 BigPipe.prototype.plugins = {};
 
 /**
+ * Process a change in BigPipe.
+ *
+ * @param {Object} changed Data that is changed.
+ * @returns {BigPipe}
+ * @api private
+ */
+BigPipe.prototype.change = require('modification')(' changed');
+
+/**
  * Configure the BigPipe.
  *
  * @param {Object} options Configuration.
@@ -100,33 +109,6 @@ BigPipe.prototype.configure = function configure(options) {
   });
 
   return this;
-};
-
-/**
- * Process a change in BigPipe.
- *
- * @param {Object} changed Data that is changed.
- * @returns {BigPipe}
- * @api private
- */
-BigPipe.prototype.change = function change(changed) {
-  var currently, previously
-    , bigpipe = this
-    , key;
-
-  if (!changed) return bigpipe;
-
-  for (key in changed) {
-    if (key in bigpipe && bigpipe[key] !== changed[key]) {
-      currently = changed[key];
-      previously = bigpipe[key];
-
-      bigpipe[key] = currently;
-      bigpipe.emit(key.toLowerCase() +'change', currently, previously);
-    }
-  }
-
-  return bigpipe;
 };
 
 /**
