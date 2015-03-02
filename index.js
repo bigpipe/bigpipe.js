@@ -70,21 +70,6 @@ BigPipe.prototype.plugins = {};
  * @api private
  */
 BigPipe.prototype.configure = function configure(options) {
-  var root = this.root
-    , className = (root.className || '').replace(/no[_-]js\s?/, '');
-
-  //
-  // Add a loading className so we can style the page accordingly and add all
-  // classNames back to the root element.
-  //
-  className = className.length ? className.split(' ') : [];
-
-  if (!~className.indexOf('pagelets-loading')) {
-    className.push('pagelets-loading');
-  }
-
-  root.className = className.join(' ');
-
   //
   // Process the potential plugins.
   //
@@ -119,11 +104,9 @@ BigPipe.prototype.arrive = function arrive(name, data) {
 
   var index
     , bigpipe = this
-    , root = bigpipe.root
     , parent = data.parent
     , remaining = data.remaining
-    , rendered = bigpipe.rendered
-    , className = (root.className || '').split(' ');
+    , rendered = bigpipe.rendered;
 
   bigpipe.progress = Math.round(((bigpipe.expected - remaining) / bigpipe.expected) * 100);
   bigpipe.emit('arrive', name, data);
@@ -161,11 +144,6 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   // Check if all pagelets have been received from the server.
   //
   if (remaining) return bigpipe;
-  if (~(index = collection.index(className, 'pagelets-loading'))) {
-    className.splice(index, 1);
-    root.className = className.join(' ');
-  }
-
   bigpipe.emit('received');
 
   return this;
