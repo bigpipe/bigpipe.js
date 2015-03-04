@@ -78,6 +78,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.run = data.run;                        // Pagelet client code.
   pagelet.id = data.id;                          // ID of the pagelet.
   pagelet.name = name;                           // Name of the pagelet.
+  pagelet.hash = data.hash;                      // MD5 of templates.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
@@ -151,7 +152,7 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
 Pagelet.prototype.template = function template(type) {
   type = type || 'client';
 
-  return this.bigpipe.templates[type +'@'+ this.id];
+  return this.bigpipe.templates[this.hash[type]];
 };
 
 /**
