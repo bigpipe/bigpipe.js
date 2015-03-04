@@ -71,8 +71,6 @@ Pagelet.prototype.configure = function configure(name, data, roots) {
   pagelet.js = collection.array(data.js);        // Dependencies for the page.
   pagelet.append = data.append || false;         // Append content to the container.
   pagelet.loader = data.loader || '';            // Loading placeholder.
-  pagelet.client = data.client;                  // Client template.
-  pagelet.error = data.error;                    // Error template.
   pagelet.data = data.data;                      // All the template data.
   pagelet.mode = data.mode;                      // Fragment rendering mode.
   pagelet.run = data.run;                        // Pagelet client code.
@@ -153,20 +151,6 @@ Pagelet.prototype.template = function template(type) {
   type = type || 'client';
 
   return this.bigpipe.templates[this.hash[type]];
-};
-
-/**
- * Load the required template by type. Either client or error.
- *
- * @param {String} type Client or Error
- * @param {Function} next Completion callback.
- * @api private
- */
-Pagelet.prototype.load = function load(type, next) {
-  type = ~['client', 'error'].indexOf(type) ? this[type] : this.client;
-  if (!type) return next(new Error('Missing client-side template'));
-
-  assets.add(type, next);
 };
 
 /**
