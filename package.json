@@ -4,9 +4,7 @@
   "description": "The client-side library which is used in BigPipe to orchestrate the pagelets.",
   "main": "index.js",
   "scripts": {
-    "prepublish": "browserify index.js -o dist/pipe.js --standalone BigPipe",
-    "test": "illuminati --phantom",
-    "node-test": "illuminati"
+    "prepublish": "browserify bigpipe.js -o dist/bigpipe.js --standalone BigPipe"
   },
   "repository": {
     "type": "git",
@@ -23,6 +21,7 @@
     "async-asset": "0.0.x",
     "demolish": "1.0.x",
     "eventemitter3": "0.1.x",
+    "fittings": "0.0.0",
     "fortress": "0.0.x",
     "modification": "1.0.x",
     "one-time": "0.0.x",
