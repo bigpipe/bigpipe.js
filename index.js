@@ -393,6 +393,7 @@ BigPipe.prototype.destroy = destroy('options, templates, pagelets, freelist, ren
 });
 
 //
-// Expose the BigPipe client library.
+// Expose the BigPipe client library and Pagelet constructor for easy extending.
 //
+BigPipe.Pagelet = Pagelet;
 module.exports = BigPipe;
