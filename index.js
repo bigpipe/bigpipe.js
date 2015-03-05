@@ -33,5 +33,5 @@ Fittings.extend({
   //
   // Reference(s) to the library files that should be loaded.
   //
-  library: read(join(__dirname, 'bigpipe.js'), 'utf-8'),
+  library: require.resolve('./bigpipe.js')
 }).on(module);
