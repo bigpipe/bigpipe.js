@@ -1,6 +1,9 @@
 <script>
-pipe = new BigPipe(undefined, {
-  pagelets: {fittings:length},
-  id: {fittings:id}
-});
+  var BigPipe = require('bigpipe')
+    , pipe;
+
+  pipe = new BigPipe(undefined, {
+    pagelets: {fittings:length},
+    id: '{fittings:id}'
+  });
 </script>
