@@ -127,10 +127,11 @@ BigPipe.prototype.IEV = document.documentMode
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Pagelet data.
+ * @param {Object} state Pagelet state
  * @returns {BigPipe}
  * @api public
  */
-BigPipe.prototype.arrive = function arrive(name, data) {
+BigPipe.prototype.arrive = function arrive(name, data, state) {
   data = data || {};
 
   var index
@@ -140,7 +141,7 @@ BigPipe.prototype.arrive = function arrive(name, data) {
     , rendered = bigpipe.rendered;
 
   bigpipe.progress = Math.round(((bigpipe.expected - remaining) / bigpipe.expected) * 100);
-  bigpipe.emit('arrive', name, data);
+  bigpipe.emit('arrive', name, data, state);
 
   //
   // Create child pagelet after parent has finished rendering.
@@ -148,10 +149,10 @@ BigPipe.prototype.arrive = function arrive(name, data) {
   if (!bigpipe.has(name)) {
     if (parent !== 'bootstrap' && !~collection.index(bigpipe.rendered, parent)) {
       bigpipe.once(parent +':render', function render() {
-        bigpipe.create(name, data, bigpipe.get(parent).placeholders);
+        bigpipe.create(name, data, state, bigpipe.get(parent).placeholders);
       });
     } else {
-      bigpipe.create(name, data);
+      bigpipe.create(name, data, state);
     }
   }
 
@@ -187,18 +188,19 @@ BigPipe.prototype.arrive = function arrive(name, data) {
  *
  * @param {String} name The name of the pagelet.
  * @param {Object} data Data for the pagelet.
+ * @param {Object} state State for the pagelet.
  * @param {Array} roots Root elements we can search can search for.
  * @returns {BigPipe}
  * @api private
  */
-BigPipe.prototype.create = function create(name, data, roots) {
+BigPipe.prototype.create = function create(name, data, state, roots) {
   data = data || {};
 
   var bigpipe = this
     , pagelet = bigpipe.alloc();
 
   bigpipe.pagelets.push(pagelet);
-  pagelet.configure(name, data, roots);
+  pagelet.configure(name, data, state, roots);
 
   //
   // A new pagelet has been loaded, emit a progress event.

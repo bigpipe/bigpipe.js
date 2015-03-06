@@ -55,28 +55,29 @@ Pagelet.prototype.constructor = Pagelet;
  *
  * @param {String} name The given name of the pagelet.
  * @param {Object} data The data of the pagelet.
+ * @param {Object} state The state of the pagelet.
  * @param {Array} roots HTML root elements search for targets.
  * @api private
  */
-Pagelet.prototype.configure = function configure(name, data, roots) {
+Pagelet.prototype.configure = function configure(name, data, state, roots) {
   var bigpipe = this.bigpipe
     , pagelet = this;
 
   //
   // Pagelet identification.
   //
-  pagelet.container = pagelet.sandbox.create();  // Create an application sandbox.
-  pagelet.timeout = data.timeout || 25 * 1000;   // Resource loading timeout.
-  pagelet.css = collection.array(data.css);      // CSS for the Page.
-  pagelet.js = collection.array(data.js);        // Dependencies for the page.
-  pagelet.append = data.append || false;         // Append content to the container.
-  pagelet.loader = data.loader || '';            // Loading placeholder.
-  pagelet.data = data.data;                      // All the template data.
-  pagelet.mode = data.mode;                      // Fragment rendering mode.
-  pagelet.run = data.run;                        // Pagelet client code.
-  pagelet.id = data.id;                          // ID of the pagelet.
-  pagelet.name = name;                           // Name of the pagelet.
-  pagelet.hash = data.hash;                      // MD5 of templates.
+  pagelet.container = pagelet.sandbox.create(); // Create an application sandbox.
+  pagelet.timeout = data.timeout || 25 * 1000;  // Resource loading timeout.
+  pagelet.css = collection.array(data.css);     // CSS for the Page.
+  pagelet.js = collection.array(data.js);       // Dependencies for the page.
+  pagelet.append = data.append || false;        // Append content to the container.
+  pagelet.loader = data.loader || '';           // Loading placeholder.
+  pagelet.mode = data.mode;                     // Fragment rendering mode.
+  pagelet.hash = data.hash;                     // MD5 of templates.
+  pagelet.run = data.run;                       // Pagelet client code.
+  pagelet.id = data.id;                         // ID of the pagelet.
+  pagelet.data = state;                         // All the template state.
+  pagelet.name = name;                          // Name of the pagelet.
 
   //
   // This pagelet was actually part of a parent pagelet, so set a reference to
