@@ -340,34 +340,7 @@ Pagelet.prototype.html = function html(root, content) {
 };
 
 /**
- * Render the fragment as SVG.
- *
- * @param {Element} root Container.
- * @param {String} content Fragment content.
- * @api public
- */
-Pagelet.prototype.svg = function svg(root, content) {
-  this.createElements(root, content);
-};
-
-/**
- * Get the element namespaceURI description based on mode.
- *
- * @param {String} mode Mode the pagelet will be rendered in.
- * @return {String} Element namespace.
- * @api private
- */
-Pagelet.prototype.getElementNS = function getElementNS(mode) {
-  mode = mode.toLowerCase();
-
-  switch(mode) {
-    case 'svg': return 'http://www.w3.org/2000/svg';
-    default: return 'http://www.w3.org/1999/xhtml';
-  }
-};
-
-/**
- * Create elements by namespace and via a document fragment.
+ * Create elements via a document fragment.
  *
  * @param {Element} root Container.
  * @param {String} content Fragment content.
@@ -375,7 +348,7 @@ Pagelet.prototype.getElementNS = function getElementNS(mode) {
  */
 Pagelet.prototype.createElements = function createElements(root, content) {
   var fragment = document.createDocumentFragment()
-    , div = document.createElementNS(this.getElementNS(this.mode), 'div')
+    , div = document.createElement('div')
     , borked = this.bigpipe.IEV < 7;
 
   //
