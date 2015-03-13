@@ -10,6 +10,11 @@ var read = require('fs').readFileSync
 //
 Fittings.extend({
   //
+  // Required name to identify the framework being pushed into Fittings.
+  //
+  name: 'bigpipe.js',
+
+  //
   // The template that is flushed to the client every single time a pagelet is
   // ready to write it's output.
   //
