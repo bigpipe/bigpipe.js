@@ -1,1 +1,1 @@
-pipe.templates[{fittings:name}]= {fittings:client};
+pipe.templates['{fittings:name}']= {fittings:client};

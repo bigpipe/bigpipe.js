@@ -16,16 +16,11 @@ var EventEmitter = require('eventemitter3')
  * - id: The id of the page that we're loading.
  *
  * @constructor
- * @param {String} server The server address we need to connect to.
  * @param {Object} options BigPipe configuration.
  * @api public
  */
-function BigPipe(server, options) {
-  if (!(this instanceof BigPipe)) return new BigPipe(server, options);
-  if ('object' === typeof server) {
-    options = server;
-    server = undefined;
-  }
+function BigPipe(options) {
+  if (!(this instanceof BigPipe)) return new BigPipe(options);
 
   options = options || {};
 
@@ -34,7 +29,6 @@ function BigPipe(server, options) {
   this.maximum = options.limit || 20;     // Max Pagelet instances we can reuse.
   this.readyState = BigPipe.LOADING;      // Current readyState.
   this.options = options;                 // Reference to the used options.
-  this.server = server;                   // The server address we connect to.
   this.templates = {};                    // Collection of templates.
   this.pagelets = [];                     // Collection of different pagelets.
   this.freelist = [];                     // Collection of unused Pagelet instances.
