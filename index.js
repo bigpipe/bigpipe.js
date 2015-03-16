@@ -1,8 +1,19 @@
 'use strict';
 
-var read = require('fs').readFileSync
-  , Fittings = require('fittings')
-  , join = require('path').join;
+var Fittings = require('fittings')
+  , join = require('path').join
+  , fs = require('fs');
+
+/**
+ * Read files out of our instructions directory.
+ *
+ * @param {String} file Filename that we should read.
+ * @returns {String}
+ * @api private
+ */
+function read(file) {
+  return fs.readFileSync(join(__dirname, 'instructions', file), 'utf-8');
+}
 
 //
 // Expose the fittings definition for the BigPipe.js client library which
@@ -16,24 +27,24 @@ Fittings.extend({
 
   //
   // The template that is flushed to the client every single time a pagelet is
-  // ready to write it's output.
+  // ready to write it's output. We split it so we can minify all the things.
   //
-  fragment: read(join(__dirname, 'fragment.html'), 'utf-8').split('\n').join(''),
+  fragment: read('fragment.html').split('\n').join(''),
 
   //
   // Library bootstrap which will be passed into the bootstrap pagelet.
   //
-  bootstrap: read(join(__dirname, 'bootstrap.html'), 'utf-8'),
+  bootstrap: read('bootstrap.html'),
 
   //
   // Wrapping template to introduce client-side templates.
   //
-  template: read(join(__dirname, 'template.js'), 'utf-8'),
+  template: read('template.js'),
 
   //
   // Wrapping template to introduce plugin client code.
   //
-  plugin: read(join(__dirname, 'plugin.js'), 'utf-8'),
+  plugin: read('plugin.js'),
 
   //
   // Reference(s) to the library files that should be loaded.
