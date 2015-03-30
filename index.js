@@ -49,5 +49,18 @@ Fittings.extend({
   //
   // Reference(s) to the library files that should be loaded.
   //
-  library: require.resolve('./bigpipe.js')
+  library: require.resolve('./bigpipe.js'),
+
+  //
+  // Additional plugins.
+  //
+  use: {
+    css: {
+      server: function server(bigpipe) {
+        var compiler = bigpipe._compiler;
+
+        compiler.on('assembly', compiler.namespace);
+      }
+    }
+  }
 }).on(module);
