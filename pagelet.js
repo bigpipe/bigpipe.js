@@ -13,7 +13,9 @@ var EventEmitter = require('eventemitter3')
 //
 // Async Asset loader.
 //
-var assets = new AsyncAsset();
+var assets = new AsyncAsset(document.body, {
+  prefix: '_'
+});
 
 /**
  * Representation of a single pagelet.
