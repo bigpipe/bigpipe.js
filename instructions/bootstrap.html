@@ -1,6 +1,24 @@
-<script>
-  var BigPipe = require('bigpipe')
-    , pipe;
+<!DOCTYPE html>
+<html class="no-js">
+  <head>
+    <meta charset="{fittings:charset}">
+    <title>{fittings:title}</title>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge;chrome=1">
+    <meta name="description" content="{fittings:description}">
+    <meta name="keywords" content="{fittings:keywords}">
+    <meta name="robots" content="{fittings:robots}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="{fittings:author}">
+    <link rel="shortcut icon" href="{fittings:favicon}">
+    {fittings:fallback}
+    {fittings:dependencies}
+  </head>
+  <body data-pagelet="{fittings:child}">
+    <script>
+      var BigPipe = require('bigpipe')
+        , pipe;
 
-  pipe = new BigPipe({ pagelets: {fittings:length}, id: '{fittings:id}' });
-</script>
+      pipe = new BigPipe({ pagelets: {fittings:length}, id: '{fittings:id}' });
+    </script>
+  </body>
+</html>
