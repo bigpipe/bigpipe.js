@@ -1,24 +1,24 @@
 <!DOCTYPE html>
 <html class="no-js">
   <head>
-    <meta charset="{fittings:charset}">
-    <title>{fittings:title}</title>
+    <meta charset="{fittings:data.charset}">
+    <title>{fittings:data.title}</title>
     <meta http-equiv="X-UA-Compatible" content="ie=edge;chrome=1">
-    <meta name="description" content="{fittings:description}">
-    <meta name="keywords" content="{fittings:keywords}">
-    <meta name="robots" content="{fittings:robots}">
+    <meta name="description" content="{fittings:data.description}">
+    <meta name="keywords" content="{fittings:data.keywords}">
+    <meta name="robots" content="{fittings:data.robots}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="author" content="{fittings:author}">
-    <link rel="shortcut icon" href="{fittings:favicon}">
-    {fittings:fallback}
-    {fittings:dependencies}
+    <meta name="author" content="{fittings:data.author}">
+    <link rel="shortcut icon" href="{fittings:data.favicon}">
+    {fittings:data.fallback}
+    {fittings:data.dependencies}
   </head>
-  <body data-pagelet="{fittings:child}">
+  <body data-pagelet="{fittings:data.child}">
     <script>
       var BigPipe = require('bigpipe')
         , pipe;
 
-      pipe = new BigPipe({ pagelets: {fittings:length}, id: '{fittings:id}' });
+      pipe = new BigPipe({ pagelets: {fittings:data.length}, id: '{fittings:id}' });
     </script>
   </body>
 </html>
