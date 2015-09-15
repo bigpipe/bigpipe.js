@@ -23,7 +23,7 @@ Fittings.extend({
   //
   // Required name to identify the framework being pushed into Fittings.
   //
-  name: 'bigpipe.js',
+  name: 'bigpipe',
 
   //
   // The template that is flushed to the client every single time a pagelet is
