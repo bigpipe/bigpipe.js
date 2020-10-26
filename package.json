@@ -20,7 +20,7 @@
   "dependencies": {
     "async-asset": "0.0.x",
     "demolish": "1.0.x",
-    "eventemitter3": "0.1.x",
+    "eventemitter3": "~2.0.2",
     "fittings": "1.2.x",
     "fortress": "0.0.x",
     "modification": "1.0.x",
@@ -32,8 +32,8 @@
     "test"
   ],
   "devDependencies": {
-    "assume": "1.1.x",
-    "browserify": "9.0.x"
+    "assume": "~1.4.1",
+    "browserify": "~13.1.1"
   },
   "author": "Arnout Kazemier",
   "license": "MIT",
