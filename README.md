@@ -1,10 +1,10 @@
 # BigPipe.js
 
-`BigPipe.js` is the client side component for the [BigPipe] framework. It
+`BigPipe.js` is the client side component for the BigPipe framework. It
 orchestrates the arrival of [pagelet]'s on the page, loads all assets and setup
 the real-time connections. It's the glue between the server and your own client
 code. While this library is highly opinionated and developed against the
-features that are provided in [BigPipe] we made sure that every piece of code is
+features that are provided in BigPipe we made sure that every piece of code is
 re-usable by the community. We've extracted various of components out of this
 library and released them as separate projects:
 
@@ -489,7 +489,6 @@ pagelet.processor({ type: 'event', args: ['eventname', 'arg', 'arg' ]});
 
 MIT
 
-[BigPipe]: https://bigpipe.io
 [pagelet]: https://github.com/bigpipe/pagelet
 [primus]: https://github.com/primus/primus
 [substream]: https://github.com/primus/substream
